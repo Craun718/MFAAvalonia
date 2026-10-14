@@ -24,6 +24,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.Versioning;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Bitmap = Avalonia.Media.Imaging.Bitmap;
@@ -62,6 +63,7 @@ public class MaaProcessor
     public string InstanceId { get; }
     public InstanceConfiguration InstanceConfiguration { get; }
     public MaaFWConfiguration Config { get; } = new();
+    private readonly ConditionalWeakTable<IMaaController, AdbControllerSnapshot> _adbControllerSnapshots = new();
     public TaskQueueViewModel? ViewModel => MaaProcessorManager.Instance.GetViewModel(InstanceId);
 
     // public Dictionary<string, MaaNode> BaseNodes = new();
@@ -974,6 +976,9 @@ public class MaaProcessor
             if (controller == null)
                 return false;
 
+            if (!MatchesCurrentAdbSelection(controller))
+                return false;
+
             if (tasker.IsRunning || tasker.IsStopping)
                 return true;
 
@@ -990,47 +995,60 @@ public class MaaProcessor
         }
     }
 
+    private bool MatchesCurrentAdbSelection(IMaaController? controller)
+    {
+        if (controller == null)
+            return false;
+        if (_adbControllerSnapshots.TryGetValue(controller, out var snapshot))
+            return ViewModel?.CurrentController == MaaControllerTypes.Adb
+                && snapshot == AdbControllerSnapshot.Capture(Config.AdbDevice);
+        return true;
+    }
+
     public async Task<MaaTasker?> GetTaskerAsync(CancellationToken token = default)
     {
-        if (MaaTasker != null && !HasReusableMainTasker())
-        {
-            LoggerHelper.Warning("检测到主任务执行器已断连或不可用，准备重新初始化。");
-            SetTasker();
-        }
-
-        if (MaaTasker == null)
-        {
-            var initializedTasker = (await InitializeMaaTasker(token)).Item1;
-            if (initializedTasker != null)
-            {
-                MaaTasker = initializedTasker;
-                // Ensure screenshot tasker is recreated from this processor's latest connection context.
-                DetachScreenshotTasker();
-                ResetScreencapFailureLogFlags();
-                await PrewarmScreenshotTaskerAsync(token);
-            }
-        }
-        return MaaTasker;
+        return (await GetTaskerAndBoolAsync(token)).Item1;
     }
 
     public async Task<(MaaTasker?, bool, bool)> GetTaskerAndBoolAsync(CancellationToken token = default)
     {
-        if (MaaTasker != null && !HasReusableMainTasker())
+        // Selection can change during controller connection, agent startup or screenshot prewarm.
+        // Never publish connection success for a controller whose parameters are now stale.
+        for (var attempt = 0; attempt < 3; attempt++)
         {
-            LoggerHelper.Warning("检测到主任务执行器已断连或不可用，连接前将重新创建。");
+            token.ThrowIfCancellationRequested();
+            if (MaaTasker != null && !HasReusableMainTasker())
+            {
+                LoggerHelper.Warning("主任务执行器已断连或设备配置已变化，准备重新初始化。");
+                SetTasker();
+            }
+
+            var tuple = MaaTasker != null ? (MaaTasker, false, true) : await InitializeMaaTasker(token);
+            if (tuple.Item1 == null)
+                return tuple;
+
+            if (MatchesCurrentAdbSelection(tuple.Item1.Controller))
+            {
+                if (MaaTasker == null)
+                {
+                    SetTasker(tuple.Item1);
+                    await PrewarmScreenshotTaskerAsync(token);
+                }
+
+                if (MatchesCurrentAdbSelection(tuple.Item1.Controller))
+                {
+                    ViewModel?.SetConnected(tuple.Item1.Controller?.IsConnected == true);
+                    return tuple;
+                }
+            }
+
+            LoggerHelper.Info("ADB 设备配置在连接期间发生变化，释放过期连接并重新初始化。");
+            SetTasker(tuple.Item1);
             SetTasker();
+            tuple.Item1.Dispose();
         }
 
-        var tuple = MaaTasker != null ? (MaaTasker, false, true) : await InitializeMaaTasker(token);
-        if (MaaTasker == null && tuple.Item1 != null)
-        {
-            MaaTasker = tuple.Item1;
-            // Ensure screenshot tasker is recreated from this processor's latest connection context.
-            DetachScreenshotTasker();
-            ResetScreencapFailureLogFlags();
-            await PrewarmScreenshotTaskerAsync(token);
-        }
-        return (MaaTasker, tuple.Item2, tuple.Item3);
+        return (null, false, true);
     }
 
     private async Task PrewarmScreenshotTaskerAsync(CancellationToken token)
@@ -1218,9 +1236,13 @@ public class MaaProcessor
 
     private async Task TryConnectForLiveViewAsync()
     {
+        // Use the same connection gate as refresh/task startup instead of initializing
+        // another main tasker while a device connection is already in progress.
+        if (IsConnecting)
+            return;
         try
         {
-            await TryConnectAsync(CancellationToken.None);
+            await TestConnecting();
         }
         catch (OperationCanceledException)
         {
@@ -1496,13 +1518,21 @@ public class MaaProcessor
         if (Design.IsDesignMode)
             return null;
 
+        var mainController = MaaTasker?.Controller;
+        if (mainController == null)
+            return null;
+        _adbControllerSnapshots.TryGetValue(mainController, out var adbSnapshot);
+        var controllerType = adbSnapshot != null ? MaaControllerTypes.Adb : ViewModel?.CurrentController ?? MaaControllerTypes.Adb;
+        if (controllerType == MaaControllerTypes.Adb && adbSnapshot == null)
+            return null;
+
         MaaController controller = null;
         try
         {
             controller = await TaskManager.RunTaskAsync(() =>
             {
                 token.ThrowIfCancellationRequested();
-                return InitializeController(ViewModel?.CurrentController ?? MaaControllerTypes.Adb, logConfig: false);
+                return InitializeController(controllerType, logConfig: false, adbSnapshot);
             }, token: token, name: "截图控制器检测", catchException: true, shouldLog: false, noMessage: true);
 
             var controllerConfig = GetCurrentInterfaceController();
@@ -1557,6 +1587,14 @@ public class MaaProcessor
         if (Design.IsDesignMode)
             return null;
 
+        var mainController = MaaTasker?.Controller;
+        if (mainController == null)
+            return null;
+        _adbControllerSnapshots.TryGetValue(mainController, out var adbSnapshot);
+        var controllerType = adbSnapshot != null ? MaaControllerTypes.Adb : ViewModel?.CurrentController ?? MaaControllerTypes.Adb;
+        if (controllerType == MaaControllerTypes.Adb && adbSnapshot == null)
+            return null;
+
         MaaResource? maaResource = null;
         try
         {
@@ -1599,7 +1637,7 @@ public class MaaProcessor
             controller = await TaskManager.RunTaskAsync(() =>
             {
                 token.ThrowIfCancellationRequested();
-                return InitializeController(ViewModel?.CurrentController ?? MaaControllerTypes.Adb, logConfig: false);
+                return InitializeController(controllerType, logConfig: false, adbSnapshot);
             }, token: token, name: "截图控制器检测", catchException: true, shouldLog: false, noMessage: true);
 
             var controllerConfig = GetCurrentInterfaceController();
@@ -1918,7 +1956,6 @@ public class MaaProcessor
                 }
             }
             RegisterCustomRecognitionsAndActions(tasker);
-            ViewModel?.SetConnected(true);
             //  tasker.Utility.SetOption_Recording(ConfigurationManager.Maa.GetValue(ConfigurationKeys.Recording, false));
             tasker.Global.SetOption_SaveDraw(ConfigurationManager.Maa.GetValue(ConfigurationKeys.SaveDraw, false));
             tasker.Global.SetOption(GlobalOption.SaveOnError, ConfigurationManager.Maa.GetValue(ConfigurationKeys.SaveOnError, true));
@@ -2271,7 +2308,7 @@ public class MaaProcessor
         LoggerHelper.Error($"初始化控制器失败：title={title}, message={message}, reason={e.Message}", e);
     }
 
-    private MaaController InitializeController(MaaControllerTypes controllerType, bool logConfig)
+    private MaaController InitializeController(MaaControllerTypes controllerType, bool logConfig, AdbControllerSnapshot? adbSnapshot = null)
     {
         ConnectToMAA(logConfig);
 
@@ -2295,23 +2332,26 @@ public class MaaProcessor
         switch (controllerType)
         {
             case MaaControllerTypes.Adb:
+                adbSnapshot ??= AdbControllerSnapshot.Capture(Config.AdbDevice);
                 if (logConfig)
                 {
                     LoggerHelper.Info($"设备名称：{Config.AdbDevice.Name}");
-                    LoggerHelper.Info($"ADB 路径：{Config.AdbDevice.AdbPath}");
-                    LoggerHelper.Info($"ADB 序列号：{Config.AdbDevice.AdbSerial}");
-                    LoggerHelper.Info($"截图模式：{Config.AdbDevice.ScreenCap}");
-                    LoggerHelper.Info($"输入模式：{Config.AdbDevice.Input}");
-                    LoggerHelper.Info($"控制器配置：{Config.AdbDevice.Config}");
+                    LoggerHelper.Info($"ADB 路径：{adbSnapshot.AdbPath}");
+                    LoggerHelper.Info($"ADB 序列号：{adbSnapshot.AdbSerial}");
+                    LoggerHelper.Info($"截图模式：{adbSnapshot.ScreenCap}");
+                    LoggerHelper.Info($"输入模式：{adbSnapshot.Input}");
+                    LoggerHelper.Info($"控制器配置：{adbSnapshot.Config}");
                 }
 
-                return new MaaAdbController(
-                    Config.AdbDevice.AdbPath,
-                    Config.AdbDevice.AdbSerial,
-                    Config.AdbDevice.ScreenCap, Config.AdbDevice.Input,
-                    !string.IsNullOrWhiteSpace(Config.AdbDevice.Config) ? Config.AdbDevice.Config : "{}",
+                var adbController = new MaaAdbController(
+                    adbSnapshot.AdbPath,
+                    adbSnapshot.AdbSerial,
+                    adbSnapshot.ScreenCap, adbSnapshot.Input,
+                    adbSnapshot.Config,
                     Path.Combine(AppPaths.InstallRoot, "libs", "MaaAgentBinary")
                 );
+                _adbControllerSnapshots.Add(adbController, adbSnapshot);
+                return adbController;
 
             case MaaControllerTypes.PlayCover:
                 if (logConfig)
@@ -3392,7 +3432,8 @@ public class MaaProcessor
             await GetTaskerAsync();
             var task = MaaTasker?.Controller?.LinkStart();
             task?.Wait();
-            ViewModel?.SetConnected(task?.Status == MaaJobStatus.Succeeded);
+            ViewModel?.SetConnected(task?.Status == MaaJobStatus.Succeeded
+                && MatchesCurrentAdbSelection(MaaTasker?.Controller));
         }
         finally
         {
@@ -4075,7 +4116,7 @@ public class MaaProcessor
                 SetTasker();
             }
 
-            if (ViewModel?.IsConnected == true && MaaTasker?.Controller?.IsConnected == true)
+            if (ViewModel?.IsConnected == true && HasReusableMainTasker())
             {
                 return;
             }
