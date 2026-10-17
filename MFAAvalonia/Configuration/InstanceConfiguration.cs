@@ -337,6 +337,31 @@ public sealed class InstanceConfiguration
     }
 
     /// <summary>
+    /// 仅从当前实例配置读取指定值，不回退到全局配置或迁移旧配置。
+    /// </summary>
+    public bool TryGetLocalValue<T>(string key, out T output, params JsonConverter[] valueConverters)
+    {
+        if (_config.TryGetValue(key, out var data))
+        {
+            try
+            {
+                var settings = new JsonSerializerSettings();
+                foreach (var converter in valueConverters)
+                    settings.Converters.Add(converter);
+                output = JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(data), settings) ?? default!;
+                return true;
+            }
+            catch
+            {
+                // Treat an unreadable local value as unavailable, matching TryGetValue.
+            }
+        }
+
+        output = default!;
+        return false;
+    }
+
+    /// <summary>
     /// 从实例配置文件中快速读取指定 key 的字符串值（不创建完整实例）
     /// </summary>
     public static string ReadValueFromFile(string instanceId, string key, string defaultValue = "")

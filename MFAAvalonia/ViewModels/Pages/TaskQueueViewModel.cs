@@ -1731,7 +1731,7 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
         var deviceInfo = CurrentDevice as AdbDeviceInfo;
         if (deviceInfo == null
             && Processor.InstanceConfiguration.GetValue(ConfigurationKeys.RememberAdb, true)
-            && Processor.InstanceConfiguration.TryGetValue(ConfigurationKeys.AdbDevice, out AdbDeviceInfo savedDevice,
+            && Processor.InstanceConfiguration.TryGetLocalValue(ConfigurationKeys.AdbDevice, out AdbDeviceInfo savedDevice,
                 new UniversalEnumConverter<AdbInputMethods>(), new UniversalEnumConverter<AdbScreencapMethods>()))
         {
             // 检测不到设备时仍允许编辑历史目标；仅回填弹窗，不将其标记为当前可用设备。
