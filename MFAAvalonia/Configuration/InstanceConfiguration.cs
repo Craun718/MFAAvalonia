@@ -3,6 +3,7 @@ using MFAAvalonia.Helper.Converters;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 
@@ -12,6 +13,7 @@ public sealed class InstanceConfiguration
 {
     private readonly string _instanceId;
     private Dictionary<string, object> _config;
+    private readonly ConcurrentDictionary<string, byte> _reportedDeserializationFailures = new();
     private volatile bool _isDeleted;
 
     internal static string InstancesDir => AppPaths.InstancesDirectory;
@@ -93,6 +95,7 @@ public sealed class InstanceConfiguration
     public void SetValue(string key, object? value)
     {
         if (value == null || _isDeleted) return;
+        _reportedDeserializationFailures.TryRemove(key, out _);
         _config[key] = value;
         SaveInstanceConfig();
     }
@@ -100,6 +103,7 @@ public sealed class InstanceConfiguration
     public void RemoveValue(string key)
     {
         if (_isDeleted) return;
+        _reportedDeserializationFailures.TryRemove(key, out _);
         if (!_config.Remove(key)) return;
         SaveInstanceConfig();
     }
@@ -340,9 +344,12 @@ public sealed class InstanceConfiguration
             }
             catch (Exception ex)
             {
-                LoggerHelper.Error(
-                    $"实例配置反序列化失败：实例={_instanceId}，配置项={key}，目标类型={typeof(T).FullName}，配置文件={GetConfigFilePath()}",
-                    ex);
+                if (_reportedDeserializationFailures.TryAdd(key, 0))
+                {
+                    LoggerHelper.Error(
+                        $"实例配置反序列化失败：实例={_instanceId}，配置项={key}，目标类型={typeof(T).FullName}，配置文件={GetConfigFilePath()}",
+                        ex);
+                }
             }
         }
 
@@ -387,6 +394,7 @@ public sealed class InstanceConfiguration
     public void ReloadFromDisk()
     {
         _config = LoadInstanceConfig();
+        _reportedDeserializationFailures.Clear();
     }
 
     /// <summary>
@@ -415,6 +423,7 @@ public sealed class InstanceConfiguration
     {
         foreach (var kvp in values)
         {
+            _reportedDeserializationFailures.TryRemove(kvp.Key, out _);
             _config[kvp.Key] = kvp.Value;
         }
         SaveInstanceConfig();
