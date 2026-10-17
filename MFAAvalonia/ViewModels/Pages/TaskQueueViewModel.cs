@@ -1333,6 +1333,7 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
 
     // 手动保存目标后，丢弃此前启动的设备检测及其延后执行的 UI 更新。
     private long _manualAdbSelectionVersion;
+    private AdbDeviceInfo? _customAdbTarget;
 
     private bool IsCurrentAdbSelectionVersion(long version) =>
         Interlocked.Read(ref _manualAdbSelectionVersion) == version;
@@ -1342,6 +1343,7 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
         DispatcherHelper.RunOnMainThread(() =>
         {
             Interlocked.Increment(ref _manualAdbSelectionVersion);
+            _customAdbTarget = device;
             _refreshCancellationTokenSource?.Cancel();
             SetAdbRecoverySelectionLock(false);
 
@@ -1518,6 +1520,14 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
 
     partial void OnCurrentDeviceChanged(object? value)
     {
+        if (!_suppressAutoConnect && !_isSyncing
+            && value is AdbDeviceInfo && _customAdbTarget != null
+            && !ReferenceEquals(value, _customAdbTarget))
+        {
+            // 用户主动切换设备后，后续刷新恢复通常的设备选择规则。
+            _customAdbTarget = null;
+            Interlocked.Increment(ref _manualAdbSelectionVersion);
+        }
         if (value is EmptyDevicePlaceholder)
         {
             _suppressAutoConnect = true;
@@ -1692,6 +1702,11 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
     partial void OnCurrentControllerChanged(MaaControllerTypes value)
     {
         if (_isSyncing) return;
+        if (value != MaaControllerTypes.Adb && _customAdbTarget != null)
+        {
+            _customAdbTarget = null;
+            Interlocked.Increment(ref _manualAdbSelectionVersion);
+        }
         SyncSelectedControllerToCurrentController(value);
         _savedControllerName = SelectedController?.Name ?? _savedControllerName;
         using var _ = BeginUiLogScope("ChangeController");
@@ -2406,7 +2421,34 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
             _suppressAutoConnect = true;
             try
             {
-                if (devices.Count == 0)
+                if (CurrentController == MaaControllerTypes.Adb && _customAdbTarget is { } customTarget)
+                {
+                    var discovered = devices.OfType<AdbDeviceInfo>().ToList();
+                    var exactMatch = discovered.FirstOrDefault(device =>
+                        string.Equals(device.AdbPath, customTarget.AdbPath, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(device.AdbSerial, customTarget.AdbSerial, StringComparison.OrdinalIgnoreCase));
+                    var selected = customTarget;
+                    if (exactMatch != null)
+                    {
+                        // 同地址仍使用手动保存的配置，避免检测结果覆盖用户编辑的参数。
+                        devices[devices.IndexOf(exactMatch)] = customTarget;
+                    }
+                    else
+                    {
+                        var fingerprintMatch = Processor.InstanceConfiguration.GetValue(ConfigurationKeys.UseFingerprintMatching, true)
+                            ? FindBestFingerprintMatchedAdbDevice(discovered, customTarget)
+                            : null;
+                        if (fingerprintMatch != null)
+                            selected = fingerprintMatch;
+                        else
+                            devices.Add(customTarget);
+                    }
+
+                    _customAdbTarget = selected;
+                    Devices = devices;
+                    CurrentDevice = selected;
+                }
+                else if (devices.Count == 0)
                 {
                     SetEmptyDeviceState();
                 }
@@ -2720,6 +2762,20 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
         if (CurrentController == MaaControllerTypes.PlayCover)
         {
             SetConnected(false);
+            return;
+        }
+
+        if (CurrentController == MaaControllerTypes.Adb && Volatile.Read(ref _customAdbTarget) is { } customTarget)
+        {
+            // 恢复流程也沿用手动目标，不能回退到无关设备或清空尚未上线的目标。
+            if (!allowAutoDetect && !strictLaunchTarget)
+                ApplyCurrentDeviceSelection(customTarget, selectionVersion);
+            else if (inTask)
+                TaskManager.RunTask(() => AutoDetectDevice(showToast: showToast,
+                    strictLaunchTarget: strictLaunchTarget, expectedAdbSelectionVersion: selectionVersion), name: "刷新设备");
+            else
+                AutoDetectDevice(showToast: showToast, strictLaunchTarget: strictLaunchTarget,
+                    expectedAdbSelectionVersion: selectionVersion);
             return;
         }
 
