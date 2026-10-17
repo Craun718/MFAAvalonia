@@ -1729,6 +1729,14 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
         LoggerHelper.UserAction("打开 ADB 编辑器", DescribeCurrentSelection(),
             operation: "OpenAdbEditor", instanceId: Processor.InstanceId, instanceName: InstanceName);
         var deviceInfo = CurrentDevice as AdbDeviceInfo;
+        if (deviceInfo == null
+            && Processor.InstanceConfiguration.GetValue(ConfigurationKeys.RememberAdb, true)
+            && Processor.InstanceConfiguration.TryGetValue(ConfigurationKeys.AdbDevice, out AdbDeviceInfo savedDevice,
+                new UniversalEnumConverter<AdbInputMethods>(), new UniversalEnumConverter<AdbScreencapMethods>()))
+        {
+            // 检测不到设备时仍允许编辑历史目标；仅回填弹窗，不将其标记为当前可用设备。
+            deviceInfo = savedDevice;
+        }
 
         Instances.DialogManager.CreateDialog().WithTitle(LangKeys.AdbEditor.ToLocalization()).WithViewModel(dialog => new AdbEditorDialogViewModel(deviceInfo, dialog)).Dismiss().ByClickingBackground().TryShow();
     }
