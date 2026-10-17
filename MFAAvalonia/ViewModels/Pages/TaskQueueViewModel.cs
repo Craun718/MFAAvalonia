@@ -1734,7 +1734,7 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
             && Processor.InstanceConfiguration.TryGetLocalValue(ConfigurationKeys.AdbDevice, out AdbDeviceInfo savedDevice,
                 new UniversalEnumConverter<AdbInputMethods>(), new UniversalEnumConverter<AdbScreencapMethods>()))
         {
-            // 检测不到设备时仍允许编辑历史目标；仅回填弹窗，不将其标记为当前可用设备。
+            // 打开时仅回填历史目标；用户保存后才应用该目标，并按连接设置尝试连接。
             deviceInfo = savedDevice;
         }
 
