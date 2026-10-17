@@ -6,6 +6,8 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace MFAAvalonia.Configuration;
 
@@ -13,7 +15,8 @@ public sealed class InstanceConfiguration
 {
     private readonly string _instanceId;
     private Dictionary<string, object> _config;
-    private readonly ConcurrentDictionary<string, byte> _reportedDeserializationFailures = new();
+    private static readonly ConcurrentDictionary<(string InstanceId, string Key, string ContentHash), byte>
+        ReportedDeserializationFailures = new();
     private volatile bool _isDeleted;
 
     internal static string InstancesDir => AppPaths.InstancesDirectory;
@@ -95,7 +98,6 @@ public sealed class InstanceConfiguration
     public void SetValue(string key, object? value)
     {
         if (value == null || _isDeleted) return;
-        _reportedDeserializationFailures.TryRemove(key, out _);
         _config[key] = value;
         SaveInstanceConfig();
     }
@@ -103,7 +105,6 @@ public sealed class InstanceConfiguration
     public void RemoveValue(string key)
     {
         if (_isDeleted) return;
-        _reportedDeserializationFailures.TryRemove(key, out _);
         if (!_config.Remove(key)) return;
         SaveInstanceConfig();
     }
@@ -334,27 +335,47 @@ public sealed class InstanceConfiguration
     {
         if (_config.TryGetValue(key, out var data))
         {
+            string? serializedData = null;
             try
             {
                 var settings = new JsonSerializerSettings();
                 foreach (var converter in valueConverters)
                     settings.Converters.Add(converter);
-                output = JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(data), settings) ?? default!;
+                serializedData = JsonConvert.SerializeObject(data);
+                output = JsonConvert.DeserializeObject<T>(serializedData, settings) ?? default!;
                 return true;
             }
             catch (Exception ex)
             {
-                if (_reportedDeserializationFailures.TryAdd(key, 0))
+                var failureContent = serializedData ?? $"{ex.GetType().FullName}\0{ex.Message}";
+                var contentHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(failureContent)));
+                if (ReportedDeserializationFailures.TryAdd((_instanceId, key, contentHash), 0))
                 {
-                    LoggerHelper.Error(
-                        $"实例配置反序列化失败：实例={_instanceId}，配置项={key}，目标类型={typeof(T).FullName}，配置文件={GetConfigFilePath()}",
-                        ex);
+                    LoggerHelper.Error($"实例配置反序列化失败：实例={SanitizeLogField(_instanceId)}，配置项={SanitizeLogField(key)}，目标类型={SanitizeLogField(typeof(T).FullName ?? typeof(T).Name)}，配置文件={SanitizeLogField(GetConfigFilePath())}，异常类型={SanitizeLogField(ex.GetType().FullName ?? ex.GetType().Name)}，异常摘要={SanitizeLogField(ex.Message)}");
                 }
             }
         }
 
         output = default!;
         return false;
+    }
+
+    private static string SanitizeLogField(string value)
+    {
+        const int maxLength = 512;
+        var sanitized = new StringBuilder(Math.Min(value.Length, maxLength));
+        foreach (var character in value)
+        {
+            if (char.IsControl(character))
+                continue;
+
+            if (sanitized.Length == maxLength)
+                break;
+
+            sanitized.Append(character);
+        }
+
+        return sanitized.ToString();
     }
 
     /// <summary>
@@ -394,7 +415,6 @@ public sealed class InstanceConfiguration
     public void ReloadFromDisk()
     {
         _config = LoadInstanceConfig();
-        _reportedDeserializationFailures.Clear();
     }
 
     /// <summary>
@@ -423,7 +443,6 @@ public sealed class InstanceConfiguration
     {
         foreach (var kvp in values)
         {
-            _reportedDeserializationFailures.TryRemove(kvp.Key, out _);
             _config[kvp.Key] = kvp.Value;
         }
         SaveInstanceConfig();
