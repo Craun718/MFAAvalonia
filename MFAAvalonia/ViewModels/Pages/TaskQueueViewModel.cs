@@ -1338,10 +1338,16 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
     private bool IsCurrentAdbSelectionVersion(long version) =>
         Interlocked.Read(ref _manualAdbSelectionVersion) == version;
 
-    public void ApplyCustomAdbDevice(AdbDeviceInfo device)
+    private (long Version, AdbDeviceInfo? Target) GetAdbSelectionSnapshot() =>
+        DispatcherHelper.RunOnMainThread(() => (_manualAdbSelectionVersion, _customAdbTarget));
+
+    public Task ApplyCustomAdbDevice(AdbDeviceInfo device)
     {
-        DispatcherHelper.RunOnMainThread(() =>
+        return Processor.ApplyConnectionTargetAsync(() =>
         {
+            var needsReset = !string.Equals(Processor.Config.AdbDevice.AdbPath, device.AdbPath, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(Processor.Config.AdbDevice.AdbSerial, device.AdbSerial, StringComparison.OrdinalIgnoreCase)
+                || Processor.Config.AdbDevice.Config != device.Config;
             Interlocked.Increment(ref _manualAdbSelectionVersion);
             _customAdbTarget = device;
             _refreshCancellationTokenSource?.Cancel();
@@ -1366,6 +1372,7 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
                 _suppressAutoConnect = false;
             }
             CurrentDevice = device;
+            return needsReset;
         });
     }
 
@@ -1377,7 +1384,7 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
         if (string.IsNullOrWhiteSpace(Processor.Config.AdbDevice.AdbSerial))
             return;
 
-        var selectionVersion = Interlocked.Read(ref _manualAdbSelectionVersion);
+        var selectionVersion = GetAdbSelectionSnapshot().Version;
         Dispatcher.UIThread.Post(() =>
         {
             if (IsCurrentAdbSelectionVersion(selectionVersion))
@@ -1409,7 +1416,7 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
 
     public void SyncCurrentAdbSelectionToActiveConfig()
     {
-        var selectionVersion = Interlocked.Read(ref _manualAdbSelectionVersion);
+        var selectionVersion = GetAdbSelectionSnapshot().Version;
         if (CurrentController != MaaControllerTypes.Adb || string.IsNullOrWhiteSpace(Processor.Config.AdbDevice.AdbSerial))
             return;
 
@@ -2020,7 +2027,7 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
                     try
                     {
                         token.ThrowIfCancellationRequested();
-                        Processor.TestConnecting().GetAwaiter().GetResult();
+                        Processor.TestConnecting(token).GetAwaiter().GetResult();
                     }
                     catch (OperationCanceledException) { throw; }
                     catch (Exception ex)
@@ -2068,7 +2075,7 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
     public void AutoDetectDevice(CancellationToken token = default, bool showToast = true, bool strictLaunchTarget = false,
         long? expectedAdbSelectionVersion = null)
     {
-        var selectionVersion = expectedAdbSelectionVersion ?? Interlocked.Read(ref _manualAdbSelectionVersion);
+        var selectionVersion = expectedAdbSelectionVersion ?? GetAdbSelectionSnapshot().Version;
         if (!IsCurrentAdbSelectionVersion(selectionVersion))
             return;
         if (CurrentController == MaaControllerTypes.PlayCover)
@@ -2758,14 +2765,14 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
 
     public void TryReadAdbDeviceFromConfig(bool inTask = true, bool refresh = false, bool allowAutoDetect = true, bool showToast = true, bool strictLaunchTarget = false)
     {
-        var selectionVersion = Interlocked.Read(ref _manualAdbSelectionVersion);
+        var (selectionVersion, customTarget) = GetAdbSelectionSnapshot();
         if (CurrentController == MaaControllerTypes.PlayCover)
         {
             SetConnected(false);
             return;
         }
 
-        if (CurrentController == MaaControllerTypes.Adb && Volatile.Read(ref _customAdbTarget) is { } customTarget)
+        if (CurrentController == MaaControllerTypes.Adb && customTarget != null)
         {
             // 恢复流程也沿用手动目标，不能回退到无关设备或清空尚未上线的目标。
             if (!allowAutoDetect && !strictLaunchTarget)

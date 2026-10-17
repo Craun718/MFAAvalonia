@@ -3374,12 +3374,31 @@ public class MaaProcessor
         ProcessHelper.HardRestartAdb(Config.AdbDevice.AdbPath);
     }
 
-    public async Task TestConnecting()
+    public async Task ApplyConnectionTargetAsync(Func<bool> applyTarget)
     {
         await _connectionGate.WaitAsync();
         Interlocked.Exchange(ref _isConnecting, 1);
         try
         {
+            // 保存与连接共用同一锁；目标在 UI 线程完整发布后，才允许下一次连接开始。
+            var needsReset = await DispatcherHelper.RunOnMainThreadAsync(applyTarget);
+            if (needsReset)
+                await Task.Run(() => SetTasker());
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _isConnecting, 0);
+            _connectionGate.Release();
+        }
+    }
+
+    public async Task TestConnecting(CancellationToken token = default)
+    {
+        await _connectionGate.WaitAsync(token);
+        Interlocked.Exchange(ref _isConnecting, 1);
+        try
+        {
+            token.ThrowIfCancellationRequested();
             if (ViewModel is { CurrentController: MaaControllerTypes.Win32, CurrentDevice: not null }
                 && !ViewModel.IsCurrentWin32WindowValid())
             {
@@ -3389,7 +3408,8 @@ public class MaaProcessor
                 await Task.Run(() => ViewModel.AutoDetectDevice(showToast: false));
             }
 
-            await GetTaskerAsync();
+            await GetTaskerAsync(token);
+            token.ThrowIfCancellationRequested();
             var task = MaaTasker?.Controller?.LinkStart();
             task?.Wait();
             ViewModel?.SetConnected(task?.Status == MaaJobStatus.Succeeded);
