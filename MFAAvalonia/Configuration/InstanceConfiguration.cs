@@ -292,21 +292,8 @@ public sealed class InstanceConfiguration
 
     public bool TryGetValue<T>(string key, out T output, params JsonConverter[] valueConverters)
     {
-        if (_config.TryGetValue(key, out var data))
-        {
-            try
-            {
-                var settings = new JsonSerializerSettings();
-                foreach (var converter in valueConverters)
-                    settings.Converters.Add(converter);
-                output = JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(data), settings) ?? default!;
-                return true;
-            }
-            catch
-            {
-                // fall through
-            }
-        }
+        if (TryGetLocalValue(key, out output, valueConverters))
+            return true;
 
         // 回退到全局配置
         var scopedKey = $"Instance.{_instanceId}.{key}";
@@ -330,6 +317,33 @@ public sealed class InstanceConfiguration
         {
             PersistFallbackValue(key, output);
             return true;
+        }
+
+        output = default!;
+        return false;
+    }
+
+    /// <summary>
+    /// 仅从当前实例配置读取指定值；读取失败时记录诊断，不回退或迁移其他配置。
+    /// </summary>
+    public bool TryGetLocalValue<T>(string key, out T output, params JsonConverter[] valueConverters)
+    {
+        if (_config.TryGetValue(key, out var data))
+        {
+            try
+            {
+                var settings = new JsonSerializerSettings();
+                foreach (var converter in valueConverters)
+                    settings.Converters.Add(converter);
+                output = JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(data), settings) ?? default!;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                LoggerHelper.Error(
+                    $"实例配置反序列化失败：实例={_instanceId}，配置项={key}，目标类型={typeof(T).FullName}，配置文件={GetConfigFilePath()}",
+                    ex);
+            }
         }
 
         output = default!;
