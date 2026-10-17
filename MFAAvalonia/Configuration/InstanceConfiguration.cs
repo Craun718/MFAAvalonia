@@ -392,6 +392,9 @@ public sealed class InstanceConfiguration
 
     private static string GetRedactedExceptionSummary(Exception exception, string? serializedData, string key)
     {
+#if DEBUG
+        return exception.Message;
+#else
         if (serializedData is null)
             return "异常消息因无法检查配置值而省略";
 
@@ -416,6 +419,7 @@ public sealed class InstanceConfiguration
         {
             return "异常消息因无法检查配置值而省略";
         }
+#endif
     }
 
     private static void CollectSensitiveValues(JToken token, bool inheritedSensitive, HashSet<string> values)
