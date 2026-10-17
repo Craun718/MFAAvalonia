@@ -3,9 +3,9 @@ using MFAAvalonia.Helper.Converters;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -15,8 +15,10 @@ public sealed class InstanceConfiguration
 {
     private readonly string _instanceId;
     private Dictionary<string, object> _config;
-    private static readonly ConcurrentDictionary<(string InstanceId, string Key, string ContentHash), byte>
-        ReportedDeserializationFailures = new();
+    private const int MaxReportedDeserializationFailures = 1024;
+    private static readonly object DeserializationFailureLock = new();
+    private static readonly HashSet<DeserializationFailureFingerprint> ReportedDeserializationFailures = new();
+    private static readonly Queue<DeserializationFailureFingerprint> DeserializationFailureOrder = new();
     private volatile bool _isDeleted;
 
     internal static string InstancesDir => AppPaths.InstancesDirectory;
@@ -347,11 +349,19 @@ public sealed class InstanceConfiguration
             }
             catch (Exception ex)
             {
-                var failureContent = serializedData ?? $"{ex.GetType().FullName}\0{ex.Message}";
+                var converterSignature = string.Join("\0", Array.ConvertAll(valueConverters,
+                    converter => converter is null
+                        ? "<null>"
+                        : converter.GetType().AssemblyQualifiedName ?? converter.GetType().FullName ?? converter.GetType().Name));
+                var targetType = typeof(T).AssemblyQualifiedName ?? typeof(T).FullName ?? typeof(T).Name;
+                var failureContent = serializedData ??
+                    $"serialization-failure\0{(data is null ? 0 : RuntimeHelpers.GetHashCode(data))}\0{ex.GetType().AssemblyQualifiedName}";
                 var contentHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(failureContent)));
-                if (ReportedDeserializationFailures.TryAdd((_instanceId, key, contentHash), 0))
+                var fingerprint = new DeserializationFailureFingerprint(
+                    _instanceId, key, contentHash, targetType, converterSignature);
+                if (TryRegisterDeserializationFailure(fingerprint))
                 {
-                    LoggerHelper.Error($"实例配置反序列化失败：实例={SanitizeLogField(_instanceId)}，配置项={SanitizeLogField(key)}，目标类型={SanitizeLogField(typeof(T).FullName ?? typeof(T).Name)}，配置文件={SanitizeLogField(GetConfigFilePath())}，异常类型={SanitizeLogField(ex.GetType().FullName ?? ex.GetType().Name)}，异常摘要={SanitizeLogField(ex.Message)}");
+                    LoggerHelper.Error($"实例配置反序列化失败：实例={SanitizeLogField(_instanceId)}，配置项={SanitizeLogField(key)}，目标类型={SanitizeLogField(typeof(T).FullName ?? typeof(T).Name)}，配置文件={SanitizeLogField(GetConfigFilePath())}，异常类型={SanitizeLogField(ex.GetType().FullName ?? ex.GetType().Name)}");
                 }
             }
         }
@@ -359,6 +369,24 @@ public sealed class InstanceConfiguration
         output = default!;
         return false;
     }
+
+    private static bool TryRegisterDeserializationFailure(DeserializationFailureFingerprint fingerprint)
+    {
+        lock (DeserializationFailureLock)
+        {
+            if (!ReportedDeserializationFailures.Add(fingerprint))
+                return false;
+
+            DeserializationFailureOrder.Enqueue(fingerprint);
+            while (DeserializationFailureOrder.Count > MaxReportedDeserializationFailures)
+                ReportedDeserializationFailures.Remove(DeserializationFailureOrder.Dequeue());
+
+            return true;
+        }
+    }
+
+    private readonly record struct DeserializationFailureFingerprint(
+        string InstanceId, string Key, string ContentHash, string TargetType, string ConverterSignature);
 
     private static string SanitizeLogField(string value)
     {
