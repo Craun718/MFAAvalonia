@@ -5,6 +5,7 @@ using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -361,7 +362,8 @@ public sealed class InstanceConfiguration
                     _instanceId, key, contentHash, targetType, converterSignature);
                 if (TryRegisterDeserializationFailure(fingerprint))
                 {
-                    LoggerHelper.Error($"实例配置反序列化失败：实例={SanitizeLogField(_instanceId)}，配置项={SanitizeLogField(key)}，目标类型={SanitizeLogField(typeof(T).FullName ?? typeof(T).Name)}，配置文件={SanitizeLogField(GetConfigFilePath())}，异常类型={SanitizeLogField(ex.GetType().FullName ?? ex.GetType().Name)}");
+                    var exceptionSummary = GetRedactedExceptionSummary(ex, serializedData, key);
+                    LoggerHelper.Error($"实例配置反序列化失败：实例={SanitizeLogField(_instanceId)}，配置项={SanitizeLogField(key)}，目标类型={SanitizeLogField(typeof(T).FullName ?? typeof(T).Name)}，配置文件={SanitizeLogField(GetConfigFilePath())}，异常类型={SanitizeLogField(ex.GetType().FullName ?? ex.GetType().Name)}，异常摘要={SanitizeLogField(exceptionSummary)}");
                 }
             }
         }
@@ -387,6 +389,69 @@ public sealed class InstanceConfiguration
 
     private readonly record struct DeserializationFailureFingerprint(
         string InstanceId, string Key, string ContentHash, string TargetType, string ConverterSignature);
+
+    private static string GetRedactedExceptionSummary(Exception exception, string? serializedData, string key)
+    {
+        if (serializedData is null)
+            return "异常消息因无法检查配置值而省略";
+
+        try
+        {
+            var configValue = JToken.Parse(serializedData);
+            var sensitiveValues = new HashSet<string>(StringComparer.Ordinal);
+            CollectSensitiveValues(configValue, IsSensitiveFieldName(key), sensitiveValues);
+
+            var summary = exception.Message;
+            foreach (var sensitiveValue in sensitiveValues.OrderByDescending(value => value.Length))
+            {
+                summary = summary.Replace(sensitiveValue, "[REDACTED]", StringComparison.Ordinal);
+                var escapedValue = JsonConvert.ToString(sensitiveValue).Trim('"');
+                if (!string.Equals(escapedValue, sensitiveValue, StringComparison.Ordinal))
+                    summary = summary.Replace(escapedValue, "[REDACTED]", StringComparison.Ordinal);
+            }
+
+            return summary;
+        }
+        catch
+        {
+            return "异常消息因无法检查配置值而省略";
+        }
+    }
+
+    private static void CollectSensitiveValues(JToken token, bool inheritedSensitive, HashSet<string> values)
+    {
+        switch (token)
+        {
+            case JObject obj:
+                foreach (var property in obj.Properties())
+                    CollectSensitiveValues(property.Value, inheritedSensitive || IsSensitiveFieldName(property.Name), values);
+                break;
+            case JArray array:
+                foreach (var item in array)
+                    CollectSensitiveValues(item, inheritedSensitive, values);
+                break;
+            case JValue value when inheritedSensitive && value.Type != JTokenType.Null:
+                var text = Convert.ToString(value.Value, System.Globalization.CultureInfo.InvariantCulture);
+                if (!string.IsNullOrEmpty(text))
+                    values.Add(text);
+                break;
+        }
+    }
+
+    private static bool IsSensitiveFieldName(string fieldName)
+    {
+        var normalized = fieldName.Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal)
+            .ToLowerInvariant();
+        return normalized.Contains("password", StringComparison.Ordinal)
+            || normalized.Contains("passwd", StringComparison.Ordinal)
+            || normalized.Contains("secret", StringComparison.Ordinal)
+            || normalized.Contains("token", StringComparison.Ordinal)
+            || normalized.Contains("apikey", StringComparison.Ordinal)
+            || normalized.Contains("accesskey", StringComparison.Ordinal)
+            || normalized.Contains("privatekey", StringComparison.Ordinal)
+            || normalized.Contains("credential", StringComparison.Ordinal);
+    }
 
     private static string SanitizeLogField(string value)
     {
