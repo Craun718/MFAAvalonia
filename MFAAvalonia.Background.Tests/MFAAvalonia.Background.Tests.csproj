@@ -15,5 +15,7 @@
   <ItemGroup>
     <!-- Exercise the production control without initializing the automation host. -->
     <Compile Include="..\MFAAvalonia\Controls\ScenicBackground.cs" Link="ScenicBackground.cs" />
+    <AvaloniaResource Include="..\MFAAvalonia\Assets\Style\ScenicBackgroundStyles.axaml" Link="ScenicBackgroundStyles.axaml" />
+    <ProjectReference Include="..\SukiUI\SukiUI.csproj" />
   </ItemGroup>
 </Project>

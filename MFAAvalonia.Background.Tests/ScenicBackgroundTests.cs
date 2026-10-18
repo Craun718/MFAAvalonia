@@ -14,8 +14,18 @@ namespace MFAAvalonia.Background.Tests;
 
 public static class TestAppBuilder
 {
-    public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<Application>()
-        .UseHeadless(new AvaloniaHeadlessPlatformOptions());
+    public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<ScenicTestApplication>()
+        .UseSkia()
+        .UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
+}
+
+public class ScenicTestApplication : Application
+{
+    public override void Initialize()
+    {
+        Styles.Add(new Avalonia.Themes.Fluent.FluentTheme());
+        Styles.Add(new SukiUI.SukiTheme { ThemeColor = SukiUI.Enums.SukiColor.Blue });
+    }
 }
 
 public class ScenicBackgroundTests

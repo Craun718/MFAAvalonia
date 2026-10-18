@@ -173,7 +173,7 @@
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
-        <suki:GlassCard Margin="0,25,0,0" Padding="25">
+        <suki:GlassCard Classes="ScenicPanel" Margin="0,25,0,0" Padding="25">
             <StackPanel Spacing="20">
                 <DockPanel>
                     <Button
@@ -377,7 +377,7 @@
                 </DockPanel>
             </StackPanel>
         </suki:GlassCard>
-        <suki:GlassCard Margin="0,25,0,0" Padding="25">
+        <suki:GlassCard Classes="ScenicPanel" Margin="0,25,0,0" Padding="25">
             <DockPanel>
                 <ComboBox extensions:ComboBoxExtensions.DisableNavigationOnLostFocus="True"
                           DisplayMemberBinding="{Binding Name}"
@@ -400,7 +400,7 @@
             </DockPanel>
         </suki:GlassCard>
         <!-- Font Scale Settings -->
-        <suki:GlassCard Margin="0,25,0,0" Padding="25">
+        <suki:GlassCard Classes="ScenicPanel" Margin="0,25,0,0" Padding="25">
             <StackPanel Spacing="10">
                 <DockPanel>
                     <TextBlock
@@ -431,7 +431,7 @@
                     TickPlacement="BottomRight" />
             </StackPanel>
         </suki:GlassCard>
-        <suki:GlassCard Margin="0,25,0,0" Padding="25">
+        <suki:GlassCard Classes="ScenicPanel" Margin="0,25,0,0" Padding="25">
             <DockPanel>
                 <ToggleSwitch
                     Classes="Switch"
@@ -451,7 +451,7 @@
                 </StackPanel>
             </DockPanel>
         </suki:GlassCard>
-        <suki:GlassCard Margin="0,25,0,0" Padding="25">
+        <suki:GlassCard Classes="ScenicPanel" Margin="0,25,0,0" Padding="25">
             <DockPanel>
                 <ToggleSwitch
                     Classes="Switch"
