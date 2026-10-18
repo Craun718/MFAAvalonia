@@ -510,6 +510,10 @@ public static partial class Instances
                     gui.EnableToastNotification = ConfigurationManager.Current.GetValue(ConfigurationKeys.EnableToastNotification, true);
                     gui.BackgroundImagePath = ConfigurationManager.Current.GetValue(ConfigurationKeys.BackgroundImagePath, string.Empty);
                     gui.BackgroundImageOpacity = ConfigurationManager.Current.GetValue(ConfigurationKeys.BackgroundImageOpacity, 0.2);
+                    gui.BackgroundImagePlacement = GuiSettingsUserControlModel.ReadBackgroundImagePlacement();
+                    gui.BackgroundImageBlurRadius = ConfigurationManager.Current.GetValue(ConfigurationKeys.BackgroundImageBlurRadius, 32.0, double.NaN);
+                    gui.BackgroundImageLightOpacity = ConfigurationManager.Current.GetValue(ConfigurationKeys.BackgroundImageLightOpacity, 0.16, double.NaN);
+                    gui.ReloadBackgroundImageModes();
                     gui.FontScale = ConfigurationManager.Current.GetValue(ConfigurationKeys.FontScale, FontService.DefaultScale);
 
                     gui.CurrentColorTheme = GuiSettingsUserControlModel.FindColorThemeFromConfig();
