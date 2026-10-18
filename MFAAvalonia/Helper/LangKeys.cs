@@ -536,6 +536,7 @@ public static class LangKeys
 	public static readonly string BackgroundImageOpacityDescription = "BackgroundImageOpacityDescription";
 	public static readonly string BackgroundImagePlacementTitle = "BackgroundImagePlacementTitle";
 	public static readonly string BackgroundImagePlacementDescription = "BackgroundImagePlacementDescription";
+	public static readonly string BackgroundImagePlacementDisabledDescription = "BackgroundImagePlacementDisabledDescription";
 	public static readonly string BackgroundImageLeft = "BackgroundImageLeft";
 	public static readonly string BackgroundImageRight = "BackgroundImageRight";
 	public static readonly string BackgroundImageTop = "BackgroundImageTop";

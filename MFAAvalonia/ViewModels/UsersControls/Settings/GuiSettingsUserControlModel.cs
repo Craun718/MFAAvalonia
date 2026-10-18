@@ -42,7 +42,8 @@ public partial class GuiSettingsUserControlModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsLightBackground), nameof(BackgroundImageStrength), nameof(BackgroundImageMode),
-        nameof(IsBackgroundPlacementEnabled), nameof(BackgroundImageStrengthTitle), nameof(BackgroundImageStrengthDescription))]
+        nameof(IsBackgroundPlacementEnabled), nameof(BackgroundImagePlacementHint),
+        nameof(BackgroundImageStrengthTitle), nameof(BackgroundImageStrengthDescription))]
     private ThemeVariant _baseTheme;
 
     [ObservableProperty] private SukiColorTheme _currentColorTheme;
@@ -80,6 +81,8 @@ public partial class GuiSettingsUserControlModel : ViewModelBase
 
     public bool IsLightBackground => BaseTheme == ThemeVariant.Light;
     public bool IsBackgroundPlacementEnabled => BackgroundImageMode == ScenicImageMode.SideBlend;
+    public string BackgroundImagePlacementHint => (IsBackgroundPlacementEnabled
+        ? LangKeys.BackgroundImagePlacementDescription : LangKeys.BackgroundImagePlacementDisabledDescription).ToLocalization();
     public string BackgroundImageStrengthTitle => (IsLightBackground
         ? LangKeys.BackgroundImageLightOpacityTitle : LangKeys.BackgroundImageOpacityTitle).ToLocalization();
     public string BackgroundImageStrengthDescription => (IsLightBackground
@@ -107,6 +110,7 @@ public partial class GuiSettingsUserControlModel : ViewModelBase
                 : ConfigurationKeys.BackgroundImageDarkMode, value.ToString());
             OnPropertyChanged(nameof(BackgroundImageMode));
             OnPropertyChanged(nameof(IsBackgroundPlacementEnabled));
+            OnPropertyChanged(nameof(BackgroundImagePlacementHint));
         }
     }
 
@@ -122,6 +126,7 @@ public partial class GuiSettingsUserControlModel : ViewModelBase
         _darkImageMode = ReadImageMode(ConfigurationKeys.BackgroundImageDarkMode, ScenicImageMode.SideBlend);
         OnPropertyChanged(nameof(BackgroundImageMode));
         OnPropertyChanged(nameof(IsBackgroundPlacementEnabled));
+        OnPropertyChanged(nameof(BackgroundImagePlacementHint));
     }
 
     [ObservableProperty] private BackgroundPlacement _backgroundImagePlacement = ReadBackgroundImagePlacement();
@@ -204,6 +209,7 @@ public partial class GuiSettingsUserControlModel : ViewModelBase
             CurrentLanguage = args.Value.Key;
             OnPropertyChanged(nameof(BackgroundImageStrengthTitle));
             OnPropertyChanged(nameof(BackgroundImageStrengthDescription));
+            OnPropertyChanged(nameof(BackgroundImagePlacementHint));
         };
 
         // Load background image if path exists

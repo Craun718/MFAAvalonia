@@ -304,8 +304,9 @@
                     </StackPanel>
                 </DockPanel>
 
-                <DockPanel IsVisible="{Binding HasBackgroundImage}" IsEnabled="{Binding IsBackgroundPlacementEnabled}">
-                    <Grid DockPanel.Dock="Right" Width="215" RowDefinitions="Auto,Auto" ColumnDefinitions="*,*" RowSpacing="8">
+                <DockPanel IsVisible="{Binding HasBackgroundImage}">
+                    <Grid DockPanel.Dock="Right" Width="215" RowDefinitions="Auto,Auto" ColumnDefinitions="*,*" RowSpacing="8"
+                          IsEnabled="{Binding IsBackgroundPlacementEnabled}">
                         <RadioButton Grid.Row="0" Grid.Column="0" GroupName="BackgroundImagePlacement"
                                      Content="{markup:I18n {x:Static helper:LangKeys.BackgroundImageLeft}}"
                                      IsChecked="{Binding BackgroundImagePlacement, Converter={converters:UniversalEqualityConverter}, ConverterParameter=Left, Mode=TwoWay}" />
@@ -323,7 +324,7 @@
                         <TextBlock FontSize="16" FontWeight="DemiBold"
                                    Text="{markup:I18n {x:Static helper:LangKeys.BackgroundImagePlacementTitle}}" />
                         <TextBlock Foreground="{DynamicResource SukiLowText}" Margin="0,12,70,0"
-                                   Text="{markup:I18n {x:Static helper:LangKeys.BackgroundImagePlacementDescription}}"
+                                   Text="{Binding BackgroundImagePlacementHint}"
                                    TextWrapping="Wrap" />
                     </StackPanel>
                 </DockPanel>

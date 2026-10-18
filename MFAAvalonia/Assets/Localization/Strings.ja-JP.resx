@@ -367,6 +367,9 @@
     <data name="BackgroundImagePlacementDescription" xml:space="preserve">
         <value>画像全体を端に配置し、余白を同じ画像のぼかしで埋めます。</value>
     </data>
+    <data name="BackgroundImagePlacementDisabledDescription" xml:space="preserve">
+        <value>「片側に配置」でのみ使用できます。切り替えると方向を調整できます。</value>
+    </data>
     <data name="BackgroundImageLeft" xml:space="preserve">
         <value>左</value>
     </data>

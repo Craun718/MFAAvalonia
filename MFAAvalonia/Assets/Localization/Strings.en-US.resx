@@ -1530,6 +1530,9 @@
     <data name="BackgroundImagePlacementDescription" xml:space="preserve">
         <value>Keep the complete image at one edge and fill the rest with a blurred copy.</value>
     </data>
+    <data name="BackgroundImagePlacementDisabledDescription" xml:space="preserve">
+        <value>Only available for “Edge blend”. Select it to adjust placement.</value>
+    </data>
     <data name="BackgroundImageLeft" xml:space="preserve">
         <value>Left</value>
     </data>

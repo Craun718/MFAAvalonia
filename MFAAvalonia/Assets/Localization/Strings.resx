@@ -1543,6 +1543,9 @@
     <data name="BackgroundImagePlacementDescription" xml:space="preserve">
         <value>完整原画靠边显示，其他区域用同图虚化补满。</value>
     </data>
+    <data name="BackgroundImagePlacementDisabledDescription" xml:space="preserve">
+        <value>仅适用于“单边融景”，切换后可调整方向。</value>
+    </data>
     <data name="BackgroundImageLeft" xml:space="preserve">
         <value>左侧</value>
     </data>
