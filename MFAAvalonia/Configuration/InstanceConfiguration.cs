@@ -3,10 +3,11 @@ using MFAAvalonia.Helper.Converters;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -356,7 +357,7 @@ public sealed class InstanceConfiguration
                         : converter.GetType().AssemblyQualifiedName ?? converter.GetType().FullName ?? converter.GetType().Name));
                 var targetType = typeof(T).AssemblyQualifiedName ?? typeof(T).FullName ?? typeof(T).Name;
                 var failureContent = serializedData ??
-                    $"serialization-failure\0{(data is null ? 0 : RuntimeHelpers.GetHashCode(data))}\0{ex.GetType().AssemblyQualifiedName}";
+                    CreateSerializationFailureFingerprint(data, ex);
                 var contentHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(failureContent)));
                 var fingerprint = new DeserializationFailureFingerprint(
                     _instanceId, key, contentHash, targetType, converterSignature);
@@ -389,6 +390,185 @@ public sealed class InstanceConfiguration
 
     private readonly record struct DeserializationFailureFingerprint(
         string InstanceId, string Key, string ContentHash, string TargetType, string ConverterSignature);
+
+    private static string CreateSerializationFailureFingerprint(object? value, Exception exception)
+    {
+        const int maxFingerprintLength = 16_384;
+        try
+        {
+            var builder = new StringBuilder();
+            var currentPath = new HashSet<object>(ReferenceEqualityComparer.Instance);
+            AppendStableValue(builder, value, currentPath, 0, maxFingerprintLength);
+            builder.Append("\0exception:").Append(exception.GetType().AssemblyQualifiedName);
+            if (builder.Length > maxFingerprintLength)
+                builder.Length = maxFingerprintLength;
+            return builder.ToString();
+        }
+        catch
+        {
+            return $"unavailable\0{value?.GetType().AssemblyQualifiedName}\0{exception.GetType().AssemblyQualifiedName}\0{exception.Message}";
+        }
+    }
+
+    private static void AppendStableValue(
+        StringBuilder builder, object? value, HashSet<object> currentPath, int depth, int maxLength)
+    {
+        if (builder.Length >= maxLength)
+            return;
+
+        if (value is null)
+        {
+            builder.Append("null");
+            return;
+        }
+
+        var type = value.GetType();
+        builder.Append(type.AssemblyQualifiedName).Append(':');
+        if (value is string || type.IsPrimitive || type.IsEnum || value is decimal
+            || value is DateTime || value is DateTimeOffset || value is TimeSpan || value is Guid
+            || value is Uri || value is Version)
+        {
+            builder.Append(Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture));
+            return;
+        }
+
+        if (depth >= 16)
+        {
+            builder.Append("<max-depth>");
+            return;
+        }
+
+        var tracksReference = !type.IsValueType;
+        if (tracksReference && !currentPath.Add(value))
+        {
+            builder.Append("<cycle>");
+            return;
+        }
+
+        try
+        {
+            switch (value)
+            {
+                case JObject obj:
+                    builder.Append('{');
+                    foreach (var property in obj.Properties().OrderBy(property => property.Name, StringComparer.Ordinal))
+                    {
+                        builder.Append(property.Name).Append('=');
+                        AppendStableValue(builder, property.Value, currentPath, depth + 1, maxLength);
+                        builder.Append(';');
+                        if (builder.Length >= maxLength)
+                            break;
+                    }
+                    builder.Append('}');
+                    break;
+                case JArray array:
+                    AppendStableSequence(builder, array, currentPath, depth, maxLength);
+                    break;
+                case JValue tokenValue:
+                    builder.Append(Convert.ToString(tokenValue.Value, System.Globalization.CultureInfo.InvariantCulture));
+                    break;
+                case IDictionary dictionary:
+                    AppendStableDictionary(builder, dictionary, currentPath, depth, maxLength);
+                    break;
+                case IEnumerable sequence:
+                    AppendStableSequence(builder, sequence, currentPath, depth, maxLength);
+                    break;
+                default:
+                    AppendStableMembers(builder, value, currentPath, depth, maxLength);
+                    break;
+            }
+        }
+        finally
+        {
+            if (tracksReference)
+                currentPath.Remove(value);
+        }
+    }
+
+    private static void AppendStableDictionary(
+        StringBuilder builder, IDictionary dictionary, HashSet<object> currentPath, int depth, int maxLength)
+    {
+        var entries = new List<(string Key, object? Value)>();
+        foreach (DictionaryEntry entry in dictionary)
+        {
+            var key = Convert.ToString(entry.Key, System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
+            entries.Add((key, entry.Value));
+        }
+
+        builder.Append('{');
+        foreach (var (key, itemValue) in entries.OrderBy(entry => entry.Key, StringComparer.Ordinal))
+        {
+            builder.Append(key).Append('=');
+            AppendStableValue(builder, itemValue, currentPath, depth + 1, maxLength);
+            builder.Append(';');
+            if (builder.Length >= maxLength)
+                break;
+        }
+        builder.Append('}');
+    }
+
+    private static void AppendStableSequence(
+        StringBuilder builder, IEnumerable sequence, HashSet<object> currentPath, int depth, int maxLength)
+    {
+        builder.Append('[');
+        var count = 0;
+        foreach (var item in sequence)
+        {
+            if (count++ >= 1024)
+            {
+                builder.Append("<max-items>");
+                break;
+            }
+
+            AppendStableValue(builder, item, currentPath, depth + 1, maxLength);
+            builder.Append(';');
+            if (builder.Length >= maxLength)
+                break;
+        }
+        builder.Append(']');
+    }
+
+    private static void AppendStableMembers(
+        StringBuilder builder, object value, HashSet<object> currentPath, int depth, int maxLength)
+    {
+        builder.Append('{');
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public;
+        foreach (var field in value.GetType().GetFields(flags).OrderBy(field => field.Name, StringComparer.Ordinal))
+        {
+            builder.Append(field.Name).Append('=');
+            try
+            {
+                AppendStableValue(builder, field.GetValue(value), currentPath, depth + 1, maxLength);
+            }
+            catch
+            {
+                builder.Append("<unavailable>");
+            }
+            builder.Append(';');
+            if (builder.Length >= maxLength)
+                break;
+        }
+
+        foreach (var property in value.GetType().GetProperties(flags)
+                     .Where(property => property.GetIndexParameters().Length == 0 && property.GetMethod is not null)
+                     .OrderBy(property => property.Name, StringComparer.Ordinal))
+        {
+            if (builder.Length >= maxLength)
+                break;
+
+            builder.Append(property.Name).Append('=');
+            try
+            {
+                AppendStableValue(builder, property.GetValue(value), currentPath, depth + 1, maxLength);
+            }
+            catch
+            {
+                builder.Append("<unavailable>");
+            }
+            builder.Append(';');
+        }
+        builder.Append('}');
+    }
 
     private static string GetRedactedExceptionSummary(Exception exception, string? serializedData, string key)
     {
