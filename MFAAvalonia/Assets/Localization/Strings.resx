@@ -1526,7 +1526,13 @@
             <value>背景图片</value>
     </data>
     <data name="BackgroundImageDescription" xml:space="preserve">
-            <value>选择内容区域的背景图片，标题栏保持独立。</value>
+            <value>选择背景图片。默认仅显示在内容区域。</value>
+    </data>
+    <data name="BackgroundImageExtendToTitleBarTitle" xml:space="preserve">
+            <value>背景延伸到标题栏</value>
+    </data>
+    <data name="BackgroundImageExtendToTitleBarDescription" xml:space="preserve">
+            <value>开启后图片覆盖整个窗口；关闭时仅显示在内容区。默认关闭，修改会自动保存。</value>
     </data>
     <data name="SelectBackgroundImage" xml:space="preserve">
             <value>选择背景图片</value>

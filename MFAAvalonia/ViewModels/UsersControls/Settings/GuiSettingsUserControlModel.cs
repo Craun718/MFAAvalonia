@@ -67,6 +67,15 @@ public partial class GuiSettingsUserControlModel : ViewModelBase
     [ObservableProperty] private Bitmap? _backgroundImage;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsWindowBackgroundVisible), nameof(IsContentBackgroundVisible))]
+    private bool _backgroundImageExtendToTitleBar =
+        ConfigurationManager.Current.GetValue(ConfigurationKeys.BackgroundImageExtendToTitleBar, false);
+
+    public bool IsWindowBackgroundVisible => HasBackgroundImage && BackgroundImageExtendToTitleBar;
+    public bool IsContentBackgroundVisible => HasBackgroundImage && !BackgroundImageExtendToTitleBar;
+    public bool CanExtendBackgroundToTitleBar => HasBackgroundImage && !OperatingSystem.IsAndroid() && !OperatingSystem.IsIOS();
+
+    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(BackgroundImageStrength))]
     private double _backgroundImageOpacity =
         ConfigurationManager.Current.GetValue(ConfigurationKeys.BackgroundImageOpacity, 0.2);
@@ -141,7 +150,9 @@ public partial class GuiSettingsUserControlModel : ViewModelBase
             ? placement : BackgroundPlacement.Right;
     }
 
-    [ObservableProperty] private bool _hasBackgroundImage;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsWindowBackgroundVisible), nameof(IsContentBackgroundVisible), nameof(CanExtendBackgroundToTitleBar))]
+    private bool _hasBackgroundImage;
 // Font Scale properties
     [ObservableProperty] private double _fontScale =
         ConfigurationManager.Current.GetValue(ConfigurationKeys.FontScale, FontService.DefaultScale);
@@ -156,6 +167,9 @@ public partial class GuiSettingsUserControlModel : ViewModelBase
 
     partial void OnBackgroundImageOpacityChanged(double value) =>
         HandlePropertyChanged(ConfigurationKeys.BackgroundImageOpacity, value);
+
+    partial void OnBackgroundImageExtendToTitleBarChanged(bool value) =>
+        HandlePropertyChanged(ConfigurationKeys.BackgroundImageExtendToTitleBar, value);
 
     partial void OnBackgroundImageLightOpacityChanged(double value) =>
         HandlePropertyChanged(ConfigurationKeys.BackgroundImageLightOpacity, value);

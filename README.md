@@ -188,7 +188,7 @@ MFAAvalonia 在 Project Interface V2 的 `task` 项中额外支持以下字段�
 
 ### 图片背景
 
-桌面版可在「设置 → 界面设置 → 背景图片」选图。图片只显示在内容区域，标题栏和导航保持清晰。
+桌面版可在「设置 → 界面设置 → 背景图片」选图。图片默认只显示在内容区域；开启「背景延伸到标题栏」可覆盖整窗，导航仍保持清晰。此选项即时生效并保存。
 
 - 「单边融景」将完整原画放在指定边缘，其余区域用同图虚化补满；方向可选左、右、上、下，默认靠右。
 - 「完整居中」保留完整构图并柔化边缘；「柔焦满屏」只保留虚化景色。
@@ -202,6 +202,7 @@ MFAAvalonia 在 Project Interface V2 的 `task` 项中额外支持以下字段�
 ```json
 {
   "BackgroundImagePath": "resource/backgrounds/background.png",
+  "BackgroundImageExtendToTitleBar": false,
   "BackgroundImagePlacement": "Right",
   "BackgroundImageDarkMode": "SideBlend",
   "BackgroundImageLightMode": "Blurred",

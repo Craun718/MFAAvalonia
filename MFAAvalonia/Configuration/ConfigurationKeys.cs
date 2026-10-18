@@ -126,6 +126,7 @@ public static class ConfigurationKeys
     public const string BackgroundTransitions = "BackgroundTransitions";
     public const string ColorTheme = "ColorTheme";
     public const string BackgroundImagePath = "BackgroundImagePath";
+    public const string BackgroundImageExtendToTitleBar = "BackgroundImageExtendToTitleBar";
     public const string BackgroundImageOpacity = "BackgroundImageOpacity";
     public const string BackgroundImagePlacement = "BackgroundImagePlacement";
     public const string BackgroundImageBlurRadius = "BackgroundImageBlurRadius";

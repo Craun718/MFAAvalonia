@@ -1513,7 +1513,13 @@
         <value>Background Image</value>
     </data>
     <data name="BackgroundImageDescription" xml:space="preserve">
-        <value>Choose a background for the content area, leaving the title bar unchanged.</value>
+        <value>Choose a background image. By default, it appears only in the content area.</value>
+    </data>
+    <data name="BackgroundImageExtendToTitleBarTitle" xml:space="preserve">
+        <value>Extend background into title bar</value>
+    </data>
+    <data name="BackgroundImageExtendToTitleBarDescription" xml:space="preserve">
+        <value>Show the image behind the title bar as well as the content. Off by default; changes are saved.</value>
     </data>
     <data name="SelectBackgroundImage" xml:space="preserve">
         <value>Select Background Image</value>

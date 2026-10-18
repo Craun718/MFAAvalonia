@@ -188,7 +188,7 @@ Place `.md` files in `resource/announcement/` to display them as resource announ
 
 ### Background images
 
-In the desktop client, choose an image under **Settings → UI settings → Background image**. The picture stays in the content area, leaving the title bar and navigation readable.
+In the desktop client, choose an image under **Settings → UI settings → Background image**. The picture stays in the content area by default. Enable **Extend background into title bar** to cover the whole window while keeping navigation readable. This setting applies immediately and is saved.
 
 - **Edge blend** preserves the complete image at the selected edge and fills the remaining space with a blurred copy. Placement supports left, right, top, and bottom, with right as the default.
 - **Centered image** preserves the composition with feathered edges; **Soft backdrop** shows only the blurred scenery.
@@ -202,6 +202,7 @@ A first-launch `config/config.template.json` can preset these client settings:
 ```json
 {
   "BackgroundImagePath": "resource/backgrounds/background.png",
+  "BackgroundImageExtendToTitleBar": false,
   "BackgroundImagePlacement": "Right",
   "BackgroundImageDarkMode": "SideBlend",
   "BackgroundImageLightMode": "Blurred",

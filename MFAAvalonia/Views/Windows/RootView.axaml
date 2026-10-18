@@ -4,6 +4,7 @@
     BackgroundTransitionsEnabled="{Binding BackgroundTransitions, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}"
     IsVisible="{Binding IsWindowVisible}"
     Classes.scenic="{Binding HasBackgroundImage, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}"
+    Classes.scenicTitleBar="{Binding IsWindowBackgroundVisible, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}"
     MinHeight="360"
     MinWidth="700"
     d:DesignHeight="450"
@@ -29,6 +30,10 @@
     NonClientAreaContentIsHitTestVisible="True" Icon="{Binding Source={x:Static helper:IconHelper.WindowIcon}}"
     xmlns:fluent="clr-namespace:FluentIcons.Avalonia.Fluent.Markup;assembly=FluentIcons.Avalonia.Fluent">
     <suki:SukiWindow.Styles>
+        <Style Selector="suki|SukiWindow.scenicTitleBar /template/ suki|GlassCard#PART_TitleBarBackground /template/ Border#PART_BorderCard">
+            <Setter Property="Background" Value="{DynamicResource ScenicChromeBackground}" />
+            <Setter Property="Opacity" Value="0.35" />
+        </Style>
         <Style Selector="suki|SukiWindow.scenic suki|GlassCard /template/ Border#PART_BorderCard">
             <Setter Property="Background" Value="{DynamicResource ScenicCardBackground}" />
             <Setter Property="Opacity" Value="0.82" />
@@ -238,9 +243,19 @@
             Manager="{x:Static helper:Instances.DialogManager}"
             Name="DialogHost" />
     </suki:SukiWindow.Hosts>
+    <suki:SukiWindow.BackgroundContent>
+        <controls:ScenicBackground
+            IsVisible="{Binding IsWindowBackgroundVisible, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}"
+            Source="{Binding BackgroundImage, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}"
+            Placement="{Binding BackgroundImagePlacement, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}"
+            Brightness="{Binding BackgroundImageStrength, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}"
+            LightMode="{Binding IsLightBackground, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}"
+            ImageMode="{Binding BackgroundImageMode, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}"
+            BlurRadius="{Binding BackgroundImageBlurRadius, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}" />
+    </suki:SukiWindow.BackgroundContent>
     <Grid ClipToBounds="True">
         <controls:ScenicBackground
-            IsVisible="{Binding HasBackgroundImage, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}"
+            IsVisible="{Binding IsContentBackgroundVisible, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}"
             Source="{Binding BackgroundImage, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}"
             Placement="{Binding BackgroundImagePlacement, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}"
             Brightness="{Binding BackgroundImageStrength, Source={x:Static helper:Instances.GuiSettingsUserControlModel}}"

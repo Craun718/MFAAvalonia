@@ -531,6 +531,8 @@ public static class LangKeys
 	public static readonly string Reset = "Reset";
 	public static readonly string BackgroundImageTitle = "BackgroundImageTitle";
 	public static readonly string BackgroundImageDescription = "BackgroundImageDescription";
+	public static readonly string BackgroundImageExtendToTitleBarTitle = "BackgroundImageExtendToTitleBarTitle";
+	public static readonly string BackgroundImageExtendToTitleBarDescription = "BackgroundImageExtendToTitleBarDescription";
 	public static readonly string SelectBackgroundImage = "SelectBackgroundImage";
 	public static readonly string BackgroundImageOpacityTitle = "BackgroundImageOpacityTitle";
 	public static readonly string BackgroundImageOpacityDescription = "BackgroundImageOpacityDescription";

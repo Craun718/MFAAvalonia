@@ -350,7 +350,13 @@
     <value>背景画像</value>
   </data>
   <data name="BackgroundImageDescription" xml:space="preserve">
-    <value>コンテンツ領域の背景画像を選択します。タイトルバーには適用されません。</value>
+    <value>背景画像を選択します。既定ではコンテンツ領域のみに表示されます。</value>
+  </data>
+  <data name="BackgroundImageExtendToTitleBarTitle" xml:space="preserve">
+    <value>背景をタイトルバーまで広げる</value>
+  </data>
+  <data name="BackgroundImageExtendToTitleBarDescription" xml:space="preserve">
+    <value>オンにすると画像をタイトルバーにも表示します。オフの場合はコンテンツ領域のみに表示します。既定はオフで、変更は保存されます。</value>
   </data>
   <data name="SelectBackgroundImage" xml:space="preserve">
     <value>背景画像を選択</value>

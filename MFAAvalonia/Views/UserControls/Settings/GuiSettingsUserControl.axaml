@@ -283,6 +283,18 @@
                     </StackPanel>
                 </DockPanel>
 
+                <DockPanel IsVisible="{Binding CanExtendBackgroundToTitleBar}">
+                    <ToggleSwitch DockPanel.Dock="Right" VerticalAlignment="Top"
+                                  IsChecked="{Binding BackgroundImageExtendToTitleBar}" />
+                    <StackPanel HorizontalAlignment="Left">
+                        <TextBlock FontSize="16" FontWeight="DemiBold"
+                                   Text="{markup:I18n {x:Static helper:LangKeys.BackgroundImageExtendToTitleBarTitle}}" />
+                        <TextBlock Foreground="{DynamicResource SukiLowText}" Margin="0,12,70,0"
+                                   Text="{markup:I18n {x:Static helper:LangKeys.BackgroundImageExtendToTitleBarDescription}}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </DockPanel>
+
                 <DockPanel IsVisible="{Binding HasBackgroundImage}">
                     <StackPanel DockPanel.Dock="Right" Width="215" Spacing="8">
                         <RadioButton GroupName="BackgroundImageMode"
