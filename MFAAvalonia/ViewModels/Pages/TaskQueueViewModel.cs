@@ -1347,7 +1347,9 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
         {
             var needsReset = !string.Equals(Processor.Config.AdbDevice.AdbPath, device.AdbPath, StringComparison.OrdinalIgnoreCase)
                 || !string.Equals(Processor.Config.AdbDevice.AdbSerial, device.AdbSerial, StringComparison.OrdinalIgnoreCase)
-                || Processor.Config.AdbDevice.Config != device.Config;
+                || Processor.Config.AdbDevice.Config != device.Config
+                || Processor.Config.AdbDevice.Info?.InputMethods != device.InputMethods
+                || Processor.Config.AdbDevice.Info?.ScreencapMethods != device.ScreencapMethods;
             Interlocked.Increment(ref _manualAdbSelectionVersion);
             _customAdbTarget = device;
             _refreshCancellationTokenSource?.Cancel();
@@ -2119,7 +2121,7 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
                     ? DetectWlRootsSockets()
                 : DetectDesktopWindows(controllerType);
         token.ThrowIfCancellationRequested();
-        if (!UpdateDeviceList(devices, index, selectionVersion))
+        if (!UpdateDeviceList(devices, index, selectionVersion, strictLaunchTarget))
             return;
         token.ThrowIfCancellationRequested();
         HandleControllerSettings(controllerType);
@@ -2416,7 +2418,8 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
         return filtered;
     }
 
-    private bool UpdateDeviceList(ObservableCollection<object> devices, int index, long selectionVersion)
+    private bool UpdateDeviceList(ObservableCollection<object> devices, int index, long selectionVersion,
+        bool strictLaunchTarget = false)
     {
         // 使用同步方式更新设备列表，确保在 AutoDetectDevice 返回前设备已更新
         // 这对于 Win32 连接失败后重试时正确检测窗口至关重要
@@ -2428,7 +2431,47 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
             _suppressAutoConnect = true;
             try
             {
-                if (CurrentController == MaaControllerTypes.Adb && _customAdbTarget is { } customTarget)
+                if (CurrentController == MaaControllerTypes.Adb && strictLaunchTarget
+                    && (GetPreferredEmulatorIndexFromLaunchConfig() >= 0 || _customAdbTarget != null))
+                {
+                    // 严格启动只能使用启动参数指定的目标；未指定多开号时才匹配手动目标。
+                    var selected = index >= 0 && index < devices.Count ? devices[index] as AdbDeviceInfo : null;
+                    if (GetPreferredEmulatorIndexFromLaunchConfig() < 0 && _customAdbTarget is { } savedTarget)
+                    {
+                        var discovered = devices.OfType<AdbDeviceInfo>().ToList();
+                        selected = discovered.FirstOrDefault(device =>
+                            string.Equals(device.AdbPath, savedTarget.AdbPath, StringComparison.OrdinalIgnoreCase)
+                            && string.Equals(device.AdbSerial, savedTarget.AdbSerial, StringComparison.OrdinalIgnoreCase))
+                            ?? FindBestFingerprintMatchedAdbDevice(discovered, savedTarget);
+                    }
+
+                    if (selected == null)
+                    {
+                        ClearActiveAdbDeviceConfig();
+                        if (devices.Count == 0)
+                            SetEmptyDeviceState();
+                        else
+                        {
+                            Devices = devices;
+                            CurrentDevice = null;
+                        }
+                    }
+                    else
+                    {
+                        if (_customAdbTarget is { } customParameters
+                            && string.Equals(selected.AdbPath, customParameters.AdbPath, StringComparison.OrdinalIgnoreCase)
+                            && string.Equals(selected.AdbSerial, customParameters.AdbSerial, StringComparison.OrdinalIgnoreCase))
+                        {
+                            devices[devices.IndexOf(selected)] = customParameters;
+                            selected = customParameters;
+                        }
+                        if (_customAdbTarget != null)
+                            _customAdbTarget = selected;
+                        Devices = devices;
+                        CurrentDevice = selected;
+                    }
+                }
+                else if (CurrentController == MaaControllerTypes.Adb && _customAdbTarget is { } customTarget)
                 {
                     var discovered = devices.OfType<AdbDeviceInfo>().ToList();
                     var exactMatch = discovered.FirstOrDefault(device =>

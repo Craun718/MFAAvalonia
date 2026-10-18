@@ -1218,9 +1218,14 @@ public class MaaProcessor
 
     private async Task TryConnectForLiveViewAsync()
     {
+        // 实时视图探测只在连接锁空闲时运行，避免逐帧探测排队或跨越目标保存。
+        if (!await _connectionGate.WaitAsync(0))
+            return;
+        Interlocked.Exchange(ref _isConnecting, 1);
         try
         {
-            await TryConnectAsync(CancellationToken.None);
+            if (!_isClosed)
+                await TryConnectAsync(CancellationToken.None);
         }
         catch (OperationCanceledException)
         {
@@ -1230,6 +1235,11 @@ public class MaaProcessor
         {
             // A live-view refresh must never create an unobserved background exception.
             LoggerHelper.Debug($"实时画面后台连接探测失败：{ex.Message}");
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _isConnecting, 0);
+            _connectionGate.Release();
         }
     }
 
