@@ -68,6 +68,7 @@ public partial class InstanceTabBarViewModel : ViewModelBase
             SearchText = string.Empty;
             RefreshFilteredTabs();
             RefreshFilteredRecentClosedTabs();
+            RefreshInstancePresets();
         }
     }
 
@@ -148,6 +149,11 @@ public partial class InstanceTabBarViewModel : ViewModelBase
         var query = PresetSearchText?.Trim() ?? string.Empty;
         foreach (var preset in presets)
         {
+            if (!IsPresetApplicableToCurrentInstance(preset))
+            {
+                continue;
+            }
+
             if (string.IsNullOrEmpty(query)
                 || (!string.IsNullOrWhiteSpace(preset.DisplayName)
                     && preset.DisplayName.Contains(query, StringComparison.OrdinalIgnoreCase))
@@ -157,6 +163,13 @@ public partial class InstanceTabBarViewModel : ViewModelBase
                 FilteredInstancePresets.Add(preset);
             }
         }
+    }
+
+    private static bool IsPresetApplicableToCurrentInstance(MaaInterface.MaaInterfacePreset preset)
+    {
+        var viewModel = ActiveTab?.TaskQueueViewModel;
+        return viewModel == null
+            || preset.IsApplicableTo(viewModel.GetCurrentControllerName(), viewModel.CurrentResource);
     }
 
     [RelayCommand]
@@ -496,7 +509,7 @@ public partial class InstanceTabBarViewModel : ViewModelBase
     public void RefreshInstancePresets()
     {
         var presets = MaaProcessor.Interface?.Preset;
-        HasInstancePresets = presets is { Count: > 0 };
+        HasInstancePresets = presets?.Any(IsPresetApplicableToCurrentInstance) == true;
         InstancePresets = presets;
         RefreshFilteredInstancePresets();
     }

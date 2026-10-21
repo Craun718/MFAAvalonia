@@ -1281,9 +1281,28 @@ public partial class MaaInterface
         [JsonProperty("icon")]
         public string? Icon { get; set; }
 
+        /// <summary>支持的控制器名称列表；为空表示支持所有控制器</summary>
+        [JsonProperty("controller")]
+        [JsonConverter(typeof(GenericSingleOrListConverter<string>))]
+        public List<string>? Controller { get; set; }
+
+        /// <summary>支持的资源包名称列表；为空表示支持所有资源包</summary>
+        [JsonProperty("resource")]
+        [JsonConverter(typeof(GenericSingleOrListConverter<string>))]
+        public List<string>? Resource { get; set; }
+
         /// <summary>预设包含的任务配置列表</summary>
         [JsonProperty("task")]
         public List<MaaInterfacePresetTask>? Task { get; set; }
+
+        public bool IsApplicableTo(string? controllerName, string? resourceName)
+        {
+            var supportsController = Controller is not { Count: > 0 }
+                || Controller.Any(name => string.Equals(name?.Trim(), controllerName?.Trim(), StringComparison.OrdinalIgnoreCase));
+            var supportsResource = Resource is not { Count: > 0 }
+                || Resource.Any(name => string.Equals(name?.Trim(), resourceName?.Trim(), StringComparison.OrdinalIgnoreCase));
+            return supportsController && supportsResource;
+        }
 
         [ObservableProperty] [JsonIgnore] private string _displayName = string.Empty;
 

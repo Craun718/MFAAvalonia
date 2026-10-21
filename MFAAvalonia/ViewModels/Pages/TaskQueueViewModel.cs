@@ -454,6 +454,7 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
                     _pendingResourceSelection = null;
                 }
 
+                RefreshPresets();
                 if (!string.Equals(CurrentResource, resolvedResource, StringComparison.Ordinal))
                 {
                     CurrentResource = resolvedResource;
@@ -854,7 +855,11 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
     /// </summary>
     public void RefreshPresets()
     {
-        var presets = MaaProcessor.Interface?.Preset;
+        var controllerName = GetCurrentControllerName();
+        var resourceName = CurrentResource;
+        var presets = MaaProcessor.Interface?.Preset?
+            .Where(preset => preset.IsApplicableTo(controllerName, resourceName))
+            .ToList();
         presets?.ForEach(p => p.InitializeDisplayName());
         Presets = presets;
         HasPresets = presets is { Count: > 0 };
@@ -1662,6 +1667,7 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
         if (Instances.IsResolved<ConnectSettingsUserControlModel>())
             Instances.ConnectSettingsUserControlModel.CurrentControllerType = value;
         UpdateResourcesForController(CurrentResource);
+        RefreshPresets();
         if (value == MaaControllerTypes.PlayCover)
         {
             TryReadPlayCoverConfig();
