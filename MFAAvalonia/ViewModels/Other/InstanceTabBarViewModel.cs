@@ -139,7 +139,7 @@ public partial class InstanceTabBarViewModel : ViewModelBase
 
     private void RefreshFilteredInstancePresets()
     {
-        var sourceViewModel = ActiveTab?.TaskQueueViewModel;
+        var sourceViewModel = GetNewInstanceSourceViewModel();
         FilteredInstancePresets.Clear();
         var presets = InstancePresets;
         if (presets == null || presets.Count == 0)
@@ -174,9 +174,9 @@ public partial class InstanceTabBarViewModel : ViewModelBase
             || preset.IsApplicableTo(sourceViewModel.GetCurrentControllerName(), sourceViewModel.CurrentResource);
     }
 
-    private bool IsPresetApplicableToCurrentInstance(MaaInterface.MaaInterfacePreset preset)
+    private TaskQueueViewModel? GetNewInstanceSourceViewModel()
     {
-        return IsPresetApplicableToSource(preset, ActiveTab?.TaskQueueViewModel);
+        return Tabs.LastOrDefault()?.TaskQueueViewModel;
     }
 
     [RelayCommand]
@@ -517,7 +517,9 @@ public partial class InstanceTabBarViewModel : ViewModelBase
     public void RefreshInstancePresets()
     {
         var presets = MaaProcessor.Interface?.Preset;
-        HasInstancePresets = presets?.Any(IsPresetApplicableToCurrentInstance) == true;
+        var sourceViewModel = GetNewInstanceSourceViewModel();
+        HasInstancePresets = presets?.Any(preset =>
+            IsPresetApplicableToSource(preset, sourceViewModel)) == true;
         InstancePresets = presets;
         RefreshFilteredInstancePresets();
     }
