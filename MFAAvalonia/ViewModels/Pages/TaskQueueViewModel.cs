@@ -454,7 +454,6 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
                     _pendingResourceSelection = null;
                 }
 
-                RefreshPresets();
                 if (!string.Equals(CurrentResource, resolvedResource, StringComparison.Ordinal))
                 {
                     CurrentResource = resolvedResource;
@@ -845,6 +844,8 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
     /// </summary>
     [ObservableProperty] private List<MaaInterface.MaaInterfacePreset>? _presets;
 
+    private List<MaaInterface.MaaInterfacePreset>? _appliedPresets;
+
     /// <summary>
     /// 是否有可用的预设（可观察，Interface 变更时通过 RefreshPresets 刷新）
     /// </summary>
@@ -860,9 +861,14 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
         var presets = MaaProcessor.Interface?.Preset?
             .Where(preset => preset.IsApplicableTo(controllerName, resourceName))
             .ToList();
-        presets?.ForEach(p => p.InitializeDisplayName());
+        _appliedPresets?.ForEach(p => p.UnsubscribeLanguage());
         Presets = presets;
+        presets?.ForEach(p =>
+        {
+            p.InitializeDisplayName();
+        });
         HasPresets = presets is { Count: > 0 };
+        _appliedPresets = presets;
     }
 
     [RelayCommand]
@@ -2908,6 +2914,8 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
             {
                 UpdateTasksForResource(null);
             }
+
+            RefreshPresets();
         }
     }
 
@@ -3802,6 +3810,8 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
 
         _processorField.TaskQueue.CountChanged -= OnTaskQueueCountChanged;
         LanguageHelper.LanguageChanged -= OnLanguageChanged;
+        _appliedPresets?.ForEach(p => p.UnsubscribeLanguage());
+        _appliedPresets = null;
 
         _refreshCancellationTokenSource?.Cancel();
         _refreshCancellationTokenSource?.Dispose();

@@ -61,7 +61,13 @@ public partial class MaaInterface
         public void InitializeDisplayName()
         {
             UpdateDisplayName();
+            LanguageHelper.LanguageChanged -= OnLanguageChanged;
             LanguageHelper.LanguageChanged += OnLanguageChanged;
+        }
+
+        public void UnsubscribeLanguage()
+        {
+            LanguageHelper.LanguageChanged -= OnLanguageChanged;
         }
 
         private void OnLanguageChanged(object? sender, LanguageHelper.LanguageEventArgs e)
@@ -1321,7 +1327,13 @@ public partial class MaaInterface
         public void InitializeDisplayName()
         {
             UpdateDisplayName();
+            LanguageHelper.LanguageChanged -= OnLanguageChanged;
             LanguageHelper.LanguageChanged += OnLanguageChanged;
+        }
+
+        public void UnsubscribeLanguage()
+        {
+            LanguageHelper.LanguageChanged -= OnLanguageChanged;
         }
 
         private void OnLanguageChanged(object? sender, LanguageHelper.LanguageEventArgs e) => UpdateDisplayName();

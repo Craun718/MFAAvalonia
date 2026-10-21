@@ -139,6 +139,7 @@ public partial class InstanceTabBarViewModel : ViewModelBase
 
     private void RefreshFilteredInstancePresets()
     {
+        var sourceViewModel = ActiveTab?.TaskQueueViewModel;
         FilteredInstancePresets.Clear();
         var presets = InstancePresets;
         if (presets == null || presets.Count == 0)
@@ -149,7 +150,7 @@ public partial class InstanceTabBarViewModel : ViewModelBase
         var query = PresetSearchText?.Trim() ?? string.Empty;
         foreach (var preset in presets)
         {
-            if (!IsPresetApplicableToCurrentInstance(preset))
+            if (!IsPresetApplicableToSource(preset, sourceViewModel))
             {
                 continue;
             }
@@ -165,11 +166,17 @@ public partial class InstanceTabBarViewModel : ViewModelBase
         }
     }
 
-    private static bool IsPresetApplicableToCurrentInstance(MaaInterface.MaaInterfacePreset preset)
+    private static bool IsPresetApplicableToSource(
+        MaaInterface.MaaInterfacePreset preset,
+        TaskQueueViewModel? sourceViewModel)
     {
-        var viewModel = ActiveTab?.TaskQueueViewModel;
-        return viewModel == null
-            || preset.IsApplicableTo(viewModel.GetCurrentControllerName(), viewModel.CurrentResource);
+        return sourceViewModel == null
+            || preset.IsApplicableTo(sourceViewModel.GetCurrentControllerName(), sourceViewModel.CurrentResource);
+    }
+
+    private bool IsPresetApplicableToCurrentInstance(MaaInterface.MaaInterfacePreset preset)
+    {
+        return IsPresetApplicableToSource(preset, ActiveTab?.TaskQueueViewModel);
     }
 
     [RelayCommand]
@@ -378,6 +385,7 @@ public partial class InstanceTabBarViewModel : ViewModelBase
             newValue.TaskQueueViewModel?.ResumeLiveView();
             // 排序期间 Tabs.Move 可能导致 SelectedItem 变化触发此回调，跳过副作用
             if (_isReloading) return;
+            RefreshInstancePresets();
             if (MaaProcessorManager.Instance.Current != newValue.Processor)
             {
                 SwitchToInstance(newValue.Processor);

@@ -82,11 +82,8 @@ public partial class InstanceTabViewModel : ViewModelBase
         if (e.PropertyName is nameof(TaskQueueViewModel.CurrentController)
             or nameof(TaskQueueViewModel.CurrentResource))
         {
-            if (ActiveTab == this)
-            {
-                DispatcherHelper.RunOnMainThread(() =>
-                    Instances.InstanceTabBarViewModel.RefreshInstancePresets());
-            }
+            DispatcherHelper.RunOnMainThread(() =>
+                Instances.InstanceTabBarViewModel.RefreshInstancePresets());
         }
 
         if (e.PropertyName is nameof(TaskQueueViewModel.TaskItemViewModels) && TaskQueueViewModel != null)
