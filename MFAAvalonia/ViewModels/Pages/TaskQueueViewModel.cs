@@ -382,12 +382,19 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
     {
         if (value == null) return;
 
+        var nameChanged = !string.Equals(NormalizeControllerName(_savedControllerName),
+            NormalizeControllerName(value.Name), StringComparison.OrdinalIgnoreCase);
         _savedControllerName = value.Name;
         Processor.InstanceConfiguration.SetValue(ConfigurationKeys.CurrentControllerName, value.Name ?? string.Empty);
 
         if (value.ControllerType != CurrentController)
         {
             CurrentController = value.ControllerType;
+        }
+        else if (!_isSyncing && nameChanged)
+        {
+            // A different named controller can use the same backend with different settings.
+            HandleControllerChanged(value.ControllerType);
         }
     }
 
@@ -1651,9 +1658,14 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
         if (_isSyncing) return;
         SyncSelectedControllerToCurrentController(value);
         _savedControllerName = SelectedController?.Name ?? _savedControllerName;
+        HandleControllerChanged(value);
+    }
+
+    private void HandleControllerChanged(MaaControllerTypes value)
+    {
         using var _ = BeginUiLogScope("ChangeController");
         LoggerHelper.UserAction("切换控制器",
-            $"controller={value}, resource={CurrentResource}",
+            $"controller={value}, name={_savedControllerName}, resource={CurrentResource}",
             operation: "ChangeController",
             instanceId: Processor.InstanceId,
             instanceName: InstanceName);
@@ -1667,9 +1679,10 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
             TryReadPlayCoverConfig();
         }
 
-        // 切换控制器类型时，先取消正在进行的搜索并清空设备列表，
-        // 防止旧控制器类型的设备在搜索期间仍然显示
+        // Invalidate the old connection even when the new controller finds no device
+        // or uses the same input methods. Its resource/window rules may still differ.
         _refreshCancellationTokenSource?.Cancel();
+        Processor.SetTasker();
         _suppressAutoConnect = true;
         try
         {
@@ -1850,8 +1863,7 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
                 return false;
             }
 
-            var controller = MaaProcessor.Interface?.Controller?
-                .FirstOrDefault(c => c.Type?.Equals(MaaControllerTypes.Win32.ToJsonKey(), StringComparison.OrdinalIgnoreCase) == true);
+            var controller = GetSelectedControllerDefinition(MaaControllerTypes.Win32);
             return controller?.Win32 == null
                 || ApplyRegexFilters([liveWindow], controller.Win32).Count > 0;
         }
@@ -2217,8 +2229,7 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
 
     private (int index, List<DesktopWindowInfo> afterFiltered) CalculateWindowIndex(List<DesktopWindowInfo> windows, MaaControllerTypes controllerType)
     {
-        var controller = MaaProcessor.Interface?.Controller?
-            .FirstOrDefault(c => c.Type?.Equals(controllerType.ToJsonKey(), StringComparison.OrdinalIgnoreCase) == true);
+        var controller = GetSelectedControllerDefinition(controllerType);
 
         if (controllerType == MaaControllerTypes.MacOS && controller?.MacOS == null
             || controllerType == MaaControllerTypes.Gamepad && controller?.Gamepad == null
@@ -2369,6 +2380,16 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
         });
     }
 
+    private MaaInterface.MaaResourceController? GetSelectedControllerDefinition(MaaControllerTypes controllerType)
+    {
+        var controllerName = NormalizeControllerName(GetCurrentControllerName());
+        var controllers = MaaProcessor.Interface?.Controller;
+        return controllers?.FirstOrDefault(c => c.ControllerType == controllerType
+                && !string.IsNullOrWhiteSpace(controllerName)
+                && string.Equals(NormalizeControllerName(c.Name), controllerName, StringComparison.OrdinalIgnoreCase))
+            ?? controllers?.FirstOrDefault(c => c.ControllerType == controllerType);
+    }
+
     private void HandleControllerSettings(MaaControllerTypes controllerType)
     {
         if (controllerType == MaaControllerTypes.PlayCover)
@@ -2376,11 +2397,7 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
 
         // 同一控制器只应用一次 interface.json 的设置，避免每次刷新都覆盖用户配置
         var controllerName = NormalizeControllerName(GetCurrentControllerName());
-        var controller = MaaProcessor.Interface?.Controller?
-            .FirstOrDefault(c => !string.IsNullOrWhiteSpace(controllerName)
-                && c.Name?.Equals(controllerName, StringComparison.OrdinalIgnoreCase) == true)
-            ?? MaaProcessor.Interface?.Controller?
-                .FirstOrDefault(c => c.Type?.Equals(controllerType.ToJsonKey(), StringComparison.OrdinalIgnoreCase) == true);
+        var controller = GetSelectedControllerDefinition(controllerType);
         var settingsKey = (controllerType, controllerName);
         if (_lastAppliedControllerSettingsKey == settingsKey)
             return;
