@@ -1531,7 +1531,6 @@ public partial class MaaInterface
     [JsonProperty("welcome")]
     [JsonConverter(typeof(MaaWelcomeConverter))]
     public List<MaaInterfaceWelcome>? Welcome { get; set; }
-
     public class MaaInterfaceWelcome
     {
         [JsonProperty("label")]
