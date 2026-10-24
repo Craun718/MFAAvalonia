@@ -1591,14 +1591,19 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
         {
             if (!igoreToast) ToastHelper.Info(LangKeys.EmulatorSelectionMessage.ToLocalizationFormatted(false, ""), device.Name);
             // 不依赖 IsConnected（AutoDetectDevice 会提前调用 SetConnected(false)），直接比较设备信息
-            var isSameDevice = !string.IsNullOrEmpty(Processor.Config.AdbDevice.AdbSerial)
-                && Processor.Config.AdbDevice.AdbSerial == device.AdbSerial
-                && Processor.Config.AdbDevice.AdbPath == device.AdbPath;
-            Processor.Config.AdbDevice.Name = device.Name;
-            Processor.Config.AdbDevice.AdbPath = device.AdbPath;
-            Processor.Config.AdbDevice.AdbSerial = device.AdbSerial;
-            Processor.Config.AdbDevice.Config = device.Config;
-            Processor.Config.AdbDevice.Info = device;
+            bool isSameDevice;
+            // Controller snapshots must not observe a partially updated device selection.
+            lock (Processor.Config.AdbDevice)
+            {
+                isSameDevice = !string.IsNullOrEmpty(Processor.Config.AdbDevice.AdbSerial)
+                    && Processor.Config.AdbDevice.AdbSerial == device.AdbSerial
+                    && Processor.Config.AdbDevice.AdbPath == device.AdbPath;
+                Processor.Config.AdbDevice.Name = device.Name;
+                Processor.Config.AdbDevice.AdbPath = device.AdbPath;
+                Processor.Config.AdbDevice.AdbSerial = device.AdbSerial;
+                Processor.Config.AdbDevice.Config = device.Config;
+                Processor.Config.AdbDevice.Info = device;
+            }
             // 正在连接或设备未变更时跳过 SetTasker，避免打断进行中的连接
             if (!Processor.IsConnecting && !isSameDevice)
                 ResetTaskerInBackground();
