@@ -10,6 +10,10 @@ namespace MFAAvalonia.Helper;
 
 public static class LangKeys
 {
+	public static readonly string RestoreInputResourceDefault = "RestoreInputResourceDefault";
+	public static readonly string RestoreGroupResourceDefaults = "RestoreGroupResourceDefaults";
+	public static readonly string RestoreResourceDefaultsConfirmation = "RestoreResourceDefaultsConfirmation";
+	public static readonly string RestoreResourceDefaultsConfirm = "RestoreResourceDefaultsConfirm";
 	public static readonly string About = "About";
 	public static readonly string AdbCaptureMode = "AdbCaptureMode";
 	public static readonly string AdbConfig = "AdbConfig";
