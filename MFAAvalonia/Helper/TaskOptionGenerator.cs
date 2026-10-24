@@ -36,6 +36,13 @@ public class TaskOptionGenerator(TaskQueueViewModel viewModel, Action saveConfig
     private static readonly Thickness OptionRowMargin = new(10, 3, 10, 3);
     private static readonly Thickness NestedOptionMargin = new(14, 2, 4, 4);
     private static readonly Thickness NestedOptionPadding = new(8, 4, 6, 4);
+    private readonly Func<bool> _isTaskRunActive = () => viewModel.Processor?.IsTaskRunActive == true;
+
+    internal TaskOptionGenerator(TaskQueueViewModel viewModel, Action saveConfigurationAction,
+        Func<bool> isTaskRunActive) : this(viewModel, saveConfigurationAction)
+    {
+        _isTaskRunActive = isTaskRunActive ?? throw new ArgumentNullException(nameof(isTaskRunActive));
+    }
 
     private sealed class DefaultResetContext
     {
@@ -62,7 +69,9 @@ public class TaskOptionGenerator(TaskQueueViewModel viewModel, Action saveConfig
         }
     }
 
-    private bool CanEditOptions => viewModel.Idle && Instances.RootViewModel.Idle;
+    // The processor marks a run active before its queued UI notification updates Idle.
+    private bool CanEditOptions => viewModel.Idle && Instances.RootViewModel.Idle
+        && !_isTaskRunActive();
     
     public void GeneratePanelContent(StackPanel panel, DragItemViewModel dragItem)
     {

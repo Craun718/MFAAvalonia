@@ -198,6 +198,50 @@ public class OptionControlsTests(OptionControlsTestSession fixture) : IClassFixt
         Assert.Equal(7L, JObject.Parse(option.PipelineOverride)["Test"]!["amount"]!.Value<long>());
     });
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public Task ProcessorStartupBlocksResetBeforeIdleNotification(bool confirmationAlreadyOpen) => Run(() =>
+    {
+        using var context = new OptionControlsTestContext();
+        var definition = InputDefinition(new() { Name = "first", Default = "one" }, new() { Name = "second", Default = "two" });
+        var option = new MaaInterface.MaaInterfaceSelectOption
+        {
+            Name = "settings", Data = new() { ["first"] = "custom", ["second"] = "custom" }
+        };
+        var panel = CreateInputs(context, option, definition);
+        context.Show(panel);
+        Dispatcher.UIThread.RunJobs();
+        var groupReset = FindReset(panel, "RestoreResourceDefaults:settings");
+        if (confirmationAlreadyOpen)
+        {
+            Click(groupReset);
+            Assert.NotNull(context.Dialog);
+        }
+
+        context.SetProcessorActiveBeforeIdleNotification(true);
+        Assert.True(context.Root.Idle);
+        Assert.True(context.TaskQueue.Idle);
+        if (confirmationAlreadyOpen)
+            Click(context.Dialog!.ActionButtons.OfType<Button>().Last());
+        else
+        {
+            Click(FindReset(panel, "RestoreResourceDefault:first"));
+            Click(groupReset);
+            Assert.Null(context.Dialog);
+        }
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(0, context.Saves);
+        Assert.All(option.Data.Values, value => Assert.Equal("custom", value));
+
+        context.SetProcessorActiveBeforeIdleNotification(false);
+        Click(FindReset(panel, "RestoreResourceDefault:first"));
+        Dispatcher.UIThread.RunJobs();
+        Assert.Equal(1, context.Saves);
+        Assert.Equal("one", option.Data["first"]);
+        Assert.Equal("custom", option.Data["second"]);
+    });
+
     [Fact]
     public Task CheckboxGroupRefreshesMultipleTogglesWithOneSave() => Run(() =>
     {

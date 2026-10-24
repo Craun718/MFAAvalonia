@@ -32,6 +32,7 @@ internal sealed class OptionControlsTestContext : IDisposable
     private readonly ConcurrentDictionary<Type, Lazy<object>> _serviceCache;
     private readonly Lazy<object>? _previousRoot;
     private readonly Lazy<object>? _previousDialogs;
+    private bool _processorActive;
 
     public RootViewModel Root { get; }
     public TaskQueueViewModel TaskQueue { get; }
@@ -54,10 +55,18 @@ internal sealed class OptionControlsTestContext : IDisposable
         _serviceCache[typeof(ISukiDialogManager)] = new Lazy<object>(() => DialogManager);
         DialogManager.OnDialogShown += (_, args) => Dialog = args.Dialog;
         DialogManager.OnDialogDismissed += (_, _) => Dialog = null;
-        Generator = new TaskOptionGenerator(TaskQueue, () => Saves++);
+        Generator = (TaskOptionGenerator)typeof(TaskOptionGenerator)
+            .GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, null,
+                [typeof(TaskQueueViewModel), typeof(Action), typeof(Func<bool>)], null)!
+            .Invoke([TaskQueue, (Action)(() => Saves++), (Func<bool>)(() => _processorActive)]);
     }
 
     public void ResetSaveCount() => Saves = 0;
+
+    public void SetProcessorActiveBeforeIdleNotification(bool active)
+    {
+        _processorActive = active;
+    }
 
     public void Show(Control content)
     {
