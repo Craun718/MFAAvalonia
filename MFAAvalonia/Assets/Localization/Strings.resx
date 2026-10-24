@@ -1535,7 +1535,7 @@
             <value>背景图片不透明度</value>
     </data>
     <data name="BackgroundImageOpacityDescription" xml:space="preserve">
-            <value>调整背景图片的不透明度，值越小图片越透明。</value>    
+            <value>调整背景图片的不透明度，值越小图片越透明。</value>
     </data>
     <data name="TriggerDate" xml:space="preserve">
         <value>触发日期</value>
@@ -2259,11 +2259,3 @@
   <data name="RestoreResourceDefaultsConfirm" xml:space="preserve"><value>恢复本组</value></data>
   <data name="ResumeInterruptedQueue" xml:space="preserve"><value>重新启动队列时，从上次未完成的任务继续（自动跳过已成功的任务）</value></data>
 </root>
-
-
-
-
-
-
-
-
