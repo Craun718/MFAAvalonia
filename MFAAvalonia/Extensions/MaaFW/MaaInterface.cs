@@ -1117,6 +1117,9 @@ public partial class MaaInterface
         [JsonProperty("display_raw")]
         public bool? DisplayRaw { get; set; }
 
+        [JsonProperty("display_expand")]
+        public List<int>? DisplayExpand { get; set; }
+
         [JsonProperty("permission_required")]
         public bool? PermissionRequired { get; set; }
         

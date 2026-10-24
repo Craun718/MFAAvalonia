@@ -1541,17 +1541,7 @@ public class MaaProcessor
                 return InitializeController(controllerType, logConfig: false, adbSnapshot);
             }, token: token, name: "截图控制器检测", catchException: true, shouldLog: false, noMessage: true);
 
-            var controllerConfig = GetCurrentInterfaceController();
-            var displayShortSide = controllerConfig?.DisplayShortSide;
-            var displayLongSide = controllerConfig?.DisplayLongSide;
-            var displayRaw = controllerConfig?.DisplayRaw;
-
-            if (displayLongSide != null && displayShortSide == null && displayRaw == null)
-                controller.SetOption_ScreenshotTargetLongSide(Convert.ToInt32(displayLongSide.Value));
-            if (displayShortSide != null && displayLongSide == null && displayRaw == null)
-                controller.SetOption_ScreenshotTargetShortSide(Convert.ToInt32(displayShortSide.Value));
-            if (displayRaw != null && displayShortSide == null && displayLongSide == null)
-                controller.SetOption_ScreenshotUseRawSize(displayRaw.Value);
+            ApplyScreenshotOptions(controller, GetCurrentInterfaceController());
         }
         catch (Exception ex)
         {
@@ -1646,17 +1636,7 @@ public class MaaProcessor
                 return InitializeController(controllerType, logConfig: false, adbSnapshot);
             }, token: token, name: "截图控制器检测", catchException: true, shouldLog: false, noMessage: true);
 
-            var controllerConfig = GetCurrentInterfaceController();
-            var displayShortSide = controllerConfig?.DisplayShortSide;
-            var displayLongSide = controllerConfig?.DisplayLongSide;
-            var displayRaw = controllerConfig?.DisplayRaw;
-
-            if (displayLongSide != null && displayShortSide == null && displayRaw == null)
-                controller.SetOption_ScreenshotTargetLongSide(Convert.ToInt32(displayLongSide.Value));
-            if (displayShortSide != null && displayLongSide == null && displayRaw == null)
-                controller.SetOption_ScreenshotTargetShortSide(Convert.ToInt32(displayShortSide.Value));
-            if (displayRaw != null && displayShortSide == null && displayLongSide == null)
-                controller.SetOption_ScreenshotUseRawSize(displayRaw.Value);
+            ApplyScreenshotOptions(controller, GetCurrentInterfaceController());
         }
         catch (Exception ex)
         {
@@ -1773,7 +1753,9 @@ public class MaaProcessor
             maaResource = await TaskManager.RunTaskAsync(() =>
             {
                 token.ThrowIfCancellationRequested();
-                return new MaaResource(resources);
+                var resource = new MaaResource(resources);
+                Instances.PerformanceUserControlModel.ChangeGpuOption(resource, Instances.PerformanceUserControlModel.GpuOption);
+                return resource;
             }, token: token, name: "资源检测", catchException: true, shouldLog: false, handleError: exception =>
             {
                 HandleInitializationError(exception, LangKeys.LoadResourcesFailed.ToLocalization(), LangKeys.LoadResourcesFailedDetail.ToLocalization());
@@ -1781,9 +1763,6 @@ public class MaaProcessor
                 InvalidResource = true;
                 throw exception;
             });
-
-            Instances.PerformanceUserControlModel.ChangeGpuOption(maaResource, Instances.PerformanceUserControlModel.GpuOption);
-
             LoggerHelper.Info(
                 $"GPU acceleration: {(Instances.PerformanceUserControlModel.GpuOption.IsDirectML ? Instances.PerformanceUserControlModel.GpuOption.Adapter.AdapterName : Instances.PerformanceUserControlModel.GpuOption.Device.ToString())}{(Instances.PerformanceUserControlModel.GpuOption.IsDirectML ? $",Adapter Id: {Instances.PerformanceUserControlModel.GpuOption.Adapter.AdapterId}" : "")}");
 
@@ -1831,16 +1810,7 @@ public class MaaProcessor
                 return (null, InvalidResource, ShouldRetry);
             }
 
-            var controllerConfig = GetCurrentInterfaceController();
-            var displayShortSide = controllerConfig?.DisplayShortSide;
-            var displayLongSide = controllerConfig?.DisplayLongSide;
-            var displayRaw = controllerConfig?.DisplayRaw;
-            if (displayLongSide != null && displayShortSide == null && displayRaw == null)
-                controller.SetOption_ScreenshotTargetLongSide(Convert.ToInt32(displayLongSide.Value));
-            if (displayShortSide != null && displayLongSide == null && displayRaw == null)
-                controller.SetOption_ScreenshotTargetShortSide(Convert.ToInt32(displayShortSide.Value));
-            if (displayRaw != null && displayShortSide == null && displayLongSide == null)
-                controller.SetOption_ScreenshotUseRawSize(displayRaw.Value);
+            ApplyScreenshotOptions(controller, GetCurrentInterfaceController());
         }
         catch (OperationCanceledException)
         {
@@ -5066,6 +5036,38 @@ public class MaaProcessor
             LoggerHelper.Warning($"解析快捷方式失败：{ex.Message}");
         }
         return null;
+    }
+
+    private static void ApplyScreenshotOptions(MaaController controller, MaaInterface.MaaResourceController? controllerConfig)
+    {
+        var displayShortSide = controllerConfig?.DisplayShortSide;
+        var displayLongSide = controllerConfig?.DisplayLongSide;
+        var displayRaw = controllerConfig?.DisplayRaw;
+        var displayExpand = controllerConfig?.DisplayExpand;
+        var configuredModes = (displayShortSide.HasValue ? 1 : 0)
+            + (displayLongSide.HasValue ? 1 : 0)
+            + (displayRaw.HasValue ? 1 : 0)
+            + (displayExpand is { Count: 2 } ? 1 : 0);
+
+        if (configuredModes != 1)
+            return;
+
+        if (displayExpand is { Count: 2 } && displayExpand[0] > 0 && displayExpand[1] > 0)
+        {
+            // MaaFramework 5.14 exposes this option in the native enum; the older
+            // managed binding used by this project has not named the enum member yet.
+            const ControllerOption screenshotTargetExpand = (ControllerOption)8;
+            if (!controller.SetOption(screenshotTargetExpand, displayExpand.ToArray()))
+                LoggerHelper.Warning("设置 display_expand 截图选项失败。");
+            return;
+        }
+
+        if (displayLongSide is > 0)
+            controller.SetOption_ScreenshotTargetLongSide(Convert.ToInt32(displayLongSide.Value));
+        else if (displayShortSide is > 0)
+            controller.SetOption_ScreenshotTargetShortSide(Convert.ToInt32(displayShortSide.Value));
+        else if (displayRaw.HasValue)
+            controller.SetOption_ScreenshotUseRawSize(displayRaw.Value);
     }
 
     /// <summary>
