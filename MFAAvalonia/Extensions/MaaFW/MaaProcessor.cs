@@ -3504,19 +3504,20 @@ public class MaaProcessor
         {
             List<DragItemViewModel> tasks;
             var retainCompletedStates = false;
+            IReadOnlyCollection<DragItemViewModel> retainedCompletedTasks = [];
             if (dragItemViewModels == null)
             {
                 tasks = FilterExecutableTasks(ViewModel?.TaskItemViewModels);
                 // 上一轮队列被中止且仍有未完成任务时，从首个未完成任务续跑，
                 // 跳过的已完成任务在界面保留其完成徽标
-                tasks = FilterResumableTasks(tasks, out retainCompletedStates);
+                tasks = FilterResumableTasks(tasks, out retainCompletedStates, out retainedCompletedTasks);
             }
             else
             {
                 tasks = FilterExecutableTasks(dragItemViewModels, ignoreCheckedState);
             }
 
-            _ = RunTaskChainAsync(tasks, onlyStart, checkUpdate, retainCompletedStates);
+            _ = RunTaskChainAsync(tasks, onlyStart, checkUpdate, retainCompletedStates, retainedCompletedTasks);
             return Task.CompletedTask;
         }
 
@@ -3548,11 +3549,11 @@ public class MaaProcessor
     }
 
     private async Task RunTaskChainAsync(List<DragItemViewModel> tasks, bool onlyStart, bool checkUpdate,
-        bool retainCompletedStates = false)
+        bool retainCompletedStates = false, IReadOnlyCollection<DragItemViewModel>? retainedCompletedTasks = null)
     {
         try
         {
-            await StartTask(tasks, onlyStart, checkUpdate, retainCompletedStates);
+            await StartTask(tasks, onlyStart, checkUpdate, retainCompletedStates, retainedCompletedTasks);
         }
         catch (OperationCanceledException)
         {
@@ -3603,9 +3604,11 @@ public class MaaProcessor
     /// 跨天/长期挂机后的旧成功态不代表「本周期已完成」，不得据此跳过。
     /// 勾选与上一轮完全一致且全部成功（或尚无任何运行状态）时不介入，行为与原先一致。
     /// </summary>
-    private List<DragItemViewModel> FilterResumableTasks(List<DragItemViewModel> tasks, out bool retainCompletedStates)
+    private List<DragItemViewModel> FilterResumableTasks(List<DragItemViewModel> tasks,
+        out bool retainCompletedStates, out IReadOnlyCollection<DragItemViewModel> retainedCompletedTasks)
     {
         retainCompletedStates = false;
+        retainedCompletedTasks = [];
         if (tasks.Count == 0)
             return tasks;
 
@@ -3627,6 +3630,7 @@ public class MaaProcessor
             return tasks;
 
         retainCompletedStates = true;
+        retainedCompletedTasks = completed;
         var completedNames = string.Join("、", completed.Select(task => task.InterfaceItem?.Name ?? task.Name));
         var nextTask = tasks.First(task => !RecentlySucceeded(task));
         var nextName = nextTask.InterfaceItem?.Name ?? nextTask.Name;
@@ -3644,7 +3648,7 @@ public class MaaProcessor
     private List<DragItemViewModel> _tempTasks = [];
 
     public async Task StartTask(List<DragItemViewModel>? tasks, bool onlyStart = false, bool checkUpdate = false,
-        bool retainCompletedStates = false)
+        bool retainCompletedStates = false, IReadOnlyCollection<DragItemViewModel>? retainedCompletedTasks = null)
     {
         using var logScope = BeginInstanceLogScope("ExecuteTaskQueue", "Worker");
         ResetActionFailedCount();
@@ -3675,7 +3679,7 @@ public class MaaProcessor
         {
             tasks ??= new List<DragItemViewModel>();
             _tempTasks = tasks;
-            runId = ViewModel?.BeginTaskRun(tasks, retainCompletedStates) ?? 0;
+            runId = ViewModel?.BeginTaskRun(tasks, retainCompletedStates, retainedCompletedTasks) ?? 0;
             LoggerHelper.Info($"准备执行任务队列：任务数量={tasks.Count}");
             var taskAndParams = tasks.Select((task, index) => CreateNodeAndParam(task, index + 1, runId)).ToList();
             InitializeConnectionTasksAsync(token);

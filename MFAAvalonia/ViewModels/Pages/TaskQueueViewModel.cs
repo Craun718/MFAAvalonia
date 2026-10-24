@@ -163,7 +163,8 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
 
     public bool Idle => !IsRunning;
 
-    public long BeginTaskRun(IReadOnlyCollection<DragItemViewModel> tasks, bool retainCompletedStates = false)
+    public long BeginTaskRun(IReadOnlyCollection<DragItemViewModel> tasks, bool retainCompletedStates = false,
+        IReadOnlyCollection<DragItemViewModel>? retainedCompletedTasks = null)
     {
         return DispatcherHelper.RunOnMainThread(() =>
         {
@@ -175,7 +176,7 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
                 // 续跑时，上一轮已成功且本轮被跳过的任务保留完成徽标与耗时
                 if (retainCompletedStates
                     && item.RunState == TaskRunState.Succeeded
-                    && !tasks.Contains(item))
+                    && retainedCompletedTasks?.Contains(item) == true)
                 {
                     item.RunId = runId;
                     continue;
@@ -2481,8 +2482,7 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
                         var discovered = devices.OfType<AdbDeviceInfo>().ToList();
                         selected = discovered.FirstOrDefault(device =>
                             string.Equals(device.AdbPath, savedTarget.AdbPath, StringComparison.OrdinalIgnoreCase)
-                            && string.Equals(device.AdbSerial, savedTarget.AdbSerial, StringComparison.OrdinalIgnoreCase))
-                            ?? FindBestFingerprintMatchedAdbDevice(discovered, savedTarget);
+                            && string.Equals(device.AdbSerial, savedTarget.AdbSerial, StringComparison.OrdinalIgnoreCase));
                     }
 
                     if (selected == null)

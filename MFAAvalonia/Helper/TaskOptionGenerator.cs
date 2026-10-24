@@ -456,6 +456,8 @@ public class TaskOptionGenerator(TaskQueueViewModel viewModel, Action saveConfig
                     {
                         var changed = OptionDefaultReset.CountChangedCheckboxCases(option, interfaceOption);
                         if (changed == 0) return;
+                        var previousCases = option.SelectedCases?.ToList();
+                        var previousPipeline = option.PipelineOverride;
                         resetContext.Restoring = true;
                         resetContext.RefreshResetStates();
                         try
@@ -466,6 +468,15 @@ public class TaskOptionGenerator(TaskQueueViewModel viewModel, Action saveConfig
                             UpdateSubOptions();
                             saveConfigurationAction();
                             LogDefaultReset(option, "checkbox-group", changed);
+                        }
+                        catch
+                        {
+                            option.SelectedCases = previousCases;
+                            option.PipelineOverride = previousPipeline;
+                            foreach (var (name, button) in caseButtons)
+                                button.IsChecked = option.SelectedCases?.Contains(name) == true;
+                            UpdateSubOptions();
+                            throw;
                         }
                         finally
                         {
@@ -540,6 +551,8 @@ public class TaskOptionGenerator(TaskQueueViewModel viewModel, Action saveConfig
             }
         }
 
+        // Rebuild the cached pipeline from loaded values before any caller can run the task.
+        UpdatePipeline(option, interfaceOption);
         resetContext.RefreshResetStates();
         return container;
     }
@@ -1090,6 +1103,8 @@ public class TaskOptionGenerator(TaskQueueViewModel viewModel, Action saveConfig
         MaaInterface.MaaInterfaceOptionInput? input = null)
     {
         if (!CanEditOptions || context.Restoring) return;
+        var previousData = option.Data?.ToDictionary(pair => pair.Key, pair => pair.Value);
+        var previousPipeline = option.PipelineOverride;
         context.Restoring = true;
         context.RefreshResetStates();
         try
@@ -1102,6 +1117,13 @@ public class TaskOptionGenerator(TaskQueueViewModel viewModel, Action saveConfig
             UpdatePipeline(option, interfaceOption);
             saveConfigurationAction();
             LogDefaultReset(option, input == null ? "input-group" : "input-field", changed);
+        }
+        catch
+        {
+            option.Data = previousData;
+            option.PipelineOverride = previousPipeline;
+            foreach (var refresh in context.RefreshControls) refresh();
+            throw;
         }
         finally
         {
