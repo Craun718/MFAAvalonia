@@ -2238,4 +2238,8 @@
   <data name="AndroidVirtualDisplayMode" xml:space="preserve"><value>バックグラウンド · 仮想ディスプレイ</value></data>
   <data name="AndroidCurrentScreenMode" xml:space="preserve"><value>フォアグラウンド · 現在の画面</value></data>
   <data name="CurrentScreen" xml:space="preserve"><value>現在の画面</value></data>
+  <data name="RestoreInputResourceDefault" xml:space="preserve"><value>この項目をリソースの既定値に戻す</value></data>
+  <data name="RestoreGroupResourceDefaults" xml:space="preserve"><value>このグループをリソースの既定値に戻す</value></data>
+  <data name="RestoreResourceDefaultsConfirmation" xml:space="preserve"><value>「{0}」で変更された {1} 項目を、プリセットではなくリソースに定義された既定値に戻します。既定値のない項目とサブオプションの設定は保持されます。</value></data>
+  <data name="RestoreResourceDefaultsConfirm" xml:space="preserve"><value>グループを戻す</value></data>
 </root>

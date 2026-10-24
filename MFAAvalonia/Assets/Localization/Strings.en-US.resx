@@ -2243,6 +2243,10 @@ Update using this archive?</value>
   <data name="AndroidVirtualDisplayMode" xml:space="preserve"><value>Background · Virtual display</value></data>
   <data name="AndroidCurrentScreenMode" xml:space="preserve"><value>Foreground · Current screen</value></data>
   <data name="CurrentScreen" xml:space="preserve"><value>Current screen</value></data>
+  <data name="RestoreInputResourceDefault" xml:space="preserve"><value>Restore this field to the resource default</value></data>
+  <data name="RestoreGroupResourceDefaults" xml:space="preserve"><value>Restore this group to resource defaults</value></data>
+  <data name="RestoreResourceDefaultsConfirmation" xml:space="preserve"><value>Restore {1} changed item(s) in “{0}” to the defaults declared by the resource, rather than preset values. Fields without declared defaults and sub-option settings will be kept.</value></data>
+  <data name="RestoreResourceDefaultsConfirm" xml:space="preserve"><value>Restore group</value></data>
 </root>
 
 
