@@ -127,7 +127,13 @@ public static class ConfigurationKeys
     public const string BackgroundTransitions = "BackgroundTransitions";
     public const string ColorTheme = "ColorTheme";
     public const string BackgroundImagePath = "BackgroundImagePath";
+    public const string BackgroundImageExtendToTitleBar = "BackgroundImageExtendToTitleBar";
     public const string BackgroundImageOpacity = "BackgroundImageOpacity";
+    public const string BackgroundImagePlacement = "BackgroundImagePlacement";
+    public const string BackgroundImageBlurRadius = "BackgroundImageBlurRadius";
+    public const string BackgroundImageLightOpacity = "BackgroundImageLightOpacity";
+    public const string BackgroundImageLightMode = "BackgroundImageLightMode";
+    public const string BackgroundImageDarkMode = "BackgroundImageDarkMode";
     public const string FontScale = "FontScale";
     public const string FontFamily = "FontFamily";
 
