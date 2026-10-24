@@ -1236,13 +1236,14 @@ public class MaaProcessor
 
     private async Task TryConnectForLiveViewAsync()
     {
-        // Use the same connection gate as refresh/task startup instead of initializing
-        // another main tasker while a device connection is already in progress.
-        if (IsConnecting)
+        // 实时视图探测只在连接锁空闲时运行，避免逐帧探测排队或跨越目标保存。
+        if (!await _connectionGate.WaitAsync(0))
             return;
+        Interlocked.Exchange(ref _isConnecting, 1);
         try
         {
-            await TestConnecting();
+            if (!_isClosed)
+                await TryConnectAsync(CancellationToken.None);
         }
         catch (OperationCanceledException)
         {
@@ -1252,6 +1253,11 @@ public class MaaProcessor
         {
             // A live-view refresh must never create an unobserved background exception.
             LoggerHelper.Debug($"实时画面后台连接探测失败：{ex.Message}");
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _isConnecting, 0);
+            _connectionGate.Release();
         }
     }
 
@@ -3414,12 +3420,31 @@ public class MaaProcessor
         ProcessHelper.HardRestartAdb(Config.AdbDevice.AdbPath);
     }
 
-    public async Task TestConnecting()
+    public async Task ApplyConnectionTargetAsync(Func<bool> applyTarget)
     {
         await _connectionGate.WaitAsync();
         Interlocked.Exchange(ref _isConnecting, 1);
         try
         {
+            // 保存与连接共用同一锁；目标在 UI 线程完整发布后，才允许下一次连接开始。
+            var needsReset = await DispatcherHelper.RunOnMainThreadAsync(applyTarget);
+            if (needsReset)
+                await Task.Run(() => SetTasker());
+        }
+        finally
+        {
+            Interlocked.Exchange(ref _isConnecting, 0);
+            _connectionGate.Release();
+        }
+    }
+
+    public async Task TestConnecting(CancellationToken token = default)
+    {
+        await _connectionGate.WaitAsync(token);
+        Interlocked.Exchange(ref _isConnecting, 1);
+        try
+        {
+            token.ThrowIfCancellationRequested();
             if (ViewModel is { CurrentController: MaaControllerTypes.Win32, CurrentDevice: not null }
                 && !ViewModel.IsCurrentWin32WindowValid())
             {
@@ -3429,7 +3454,8 @@ public class MaaProcessor
                 await Task.Run(() => ViewModel.AutoDetectDevice(showToast: false));
             }
 
-            await GetTaskerAsync();
+            await GetTaskerAsync(token);
+            token.ThrowIfCancellationRequested();
             var task = MaaTasker?.Controller?.LinkStart();
             task?.Wait();
             ViewModel?.SetConnected(task?.Status == MaaJobStatus.Succeeded
