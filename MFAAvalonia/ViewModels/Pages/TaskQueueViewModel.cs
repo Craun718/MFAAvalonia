@@ -998,14 +998,15 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
                         {
                             selectOption.Data ??= new Dictionary<string, string?>();
                             foreach (var prop in jObj.Properties())
-                                selectOption.Data[prop.Name] = prop.Value.Value<string>();
+                                if (interfaceOption.Inputs?.Any(input => input.Name == prop.Name && input.IsPassword) != true)
+                                    selectOption.Data[prop.Name] = prop.Value.Value<string>();
 
                             RefreshPresetOptionRuntimeState(selectOption);
                         }
                         else if (interfaceOption.Inputs is { Count: 1 } singleInputs)
                         {
                             var inputName = singleInputs[0].Name;
-                            if (!string.IsNullOrWhiteSpace(inputName))
+                            if (!singleInputs[0].IsPassword && !string.IsNullOrWhiteSpace(inputName))
                             {
                                 selectOption.Data ??= new Dictionary<string, string?>();
                                 var inputValue = optionValue.Type == JTokenType.String
@@ -3450,9 +3451,9 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
                 {
                     Name = saved.Name,
                     Index = saved.Index,
-                    Data = saved.Data != null ? new Dictionary<string, string?>(saved.Data) : null,
                     SelectedCases = saved.SelectedCases != null ? new List<string>(saved.SelectedCases) : null,
                 };
+                savedOption.CopyInputDataFrom(saved);
                 TaskLoader.SetDefaultOptionValue(MaaProcessor.Interface, savedOption);
                 return savedOption;
             }
@@ -3531,10 +3532,10 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
                     {
                         Name = savedOpt.Name,
                         Index = savedOpt.Index,
-                        Data = savedOpt.Data != null ? new Dictionary<string, string?>(savedOpt.Data) : null,
                         SubOptions = savedOpt.SubOptions != null ? CloneSubOptions(savedOpt.SubOptions) : null,
                         SelectedCases = savedOpt.SelectedCases != null ? new List<string>(savedOpt.SelectedCases) : null,
                     };
+                    clonedOpt.CopyInputDataFrom(savedOpt);
                     return clonedOpt;
                 }
 
@@ -3553,13 +3554,17 @@ public partial class TaskQueueViewModel : ViewModelBase, IDisposable
     /// </summary>
     private List<MaaInterface.MaaInterfaceSelectOption> CloneSubOptions(List<MaaInterface.MaaInterfaceSelectOption> subOptions)
     {
-        return subOptions.Select(opt => new MaaInterface.MaaInterfaceSelectOption
+        return subOptions.Select(opt =>
         {
-            Name = opt.Name,
-            Index = opt.Index,
-            Data = opt.Data != null ? new Dictionary<string, string?>(opt.Data) : null,
-            SubOptions = opt.SubOptions != null ? CloneSubOptions(opt.SubOptions) : null,
-            SelectedCases = opt.SelectedCases != null ? new List<string>(opt.SelectedCases) : null
+            var clone = new MaaInterface.MaaInterfaceSelectOption
+            {
+                Name = opt.Name,
+                Index = opt.Index,
+                SubOptions = opt.SubOptions != null ? CloneSubOptions(opt.SubOptions) : null,
+                SelectedCases = opt.SelectedCases != null ? new List<string>(opt.SelectedCases) : null
+            };
+            clone.CopyInputDataFrom(opt);
+            return clone;
         }).ToList();
     }
 

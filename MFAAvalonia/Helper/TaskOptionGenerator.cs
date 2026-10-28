@@ -492,7 +492,7 @@ public class TaskOptionGenerator(TaskQueueViewModel viewModel, Action saveConfig
         return container;
     }
 
-    private Control CreateInputControl(MaaInterface.MaaInterfaceSelectOption option, MaaInterface.MaaInterfaceOption interfaceOption, bool allowReset = true)
+    internal Control CreateInputControl(MaaInterface.MaaInterfaceSelectOption option, MaaInterface.MaaInterfaceOption interfaceOption, bool allowReset = true)
     {
         var resetContext = new DefaultResetContext();
         var hasOptionDescription = !string.IsNullOrWhiteSpace(GetTooltipText(interfaceOption.Description, interfaceOption.Document));
@@ -509,6 +509,8 @@ public class TaskOptionGenerator(TaskQueueViewModel viewModel, Action saveConfig
 
         option.Data ??= new Dictionary<string, string?>();
         if (interfaceOption.Inputs == null || interfaceOption.Inputs.Count == 0) return container;
+
+        option.InitializeInputData(interfaceOption);
 
         interfaceOption.InitializeIcon();
 
@@ -539,9 +541,7 @@ public class TaskOptionGenerator(TaskQueueViewModel viewModel, Action saveConfig
                 option.Data[input.Name] = currentValue;
             }
 
-            var pipelineType = input.PipelineType?.ToLower() ?? "string";
-
-            if (pipelineType == "bool")
+            if (input.UseBooleanSwitch)
             {
                 container.Children.Add(CreateBoolInputControl(input, currentValue, option, interfaceOption, resetContext, allowReset));
             }
@@ -611,6 +611,8 @@ public class TaskOptionGenerator(TaskQueueViewModel viewModel, Action saveConfig
             MinWidth = 120,
             Margin = new Thickness(0, 2, 0, 2),
             BorderThickness = new Thickness(1),
+            PasswordChar = input.IsPassword ? '\u25cf' : '\0',
+            RevealPassword = false,
             Text = displayValue,
             VerticalAlignment = VerticalAlignment.Center
         };
@@ -620,6 +622,7 @@ public class TaskOptionGenerator(TaskQueueViewModel viewModel, Action saveConfig
             textBox.Bind(TextBox.WatermarkProperty, new ResourceBinding(input.PatternMsg));
         
         BindIdleEnabled(textBox);
+        OptionInputPicker.Attach(textBox, input, () => CanEditOptions);
 
         // Events
         var handlingInput = false;
@@ -1349,7 +1352,8 @@ public class TaskOptionGenerator(TaskQueueViewModel viewModel, Action saveConfig
         var text = textBox.Text ?? string.Empty;
         var pipelineType = input.PipelineType?.ToLower() ?? "string";
 
-        if (pipelineType == "int" && !IsValidIntegerInput(text))
+        if (pipelineType == "int" && input.InputType == null && input.Type == null && !input.IsPassword
+            && !IsValidIntegerInput(text))
         {
             var oldIdx = textBox.CaretIndex;
             textBox.Text = FilterToInteger(text);

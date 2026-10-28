@@ -9,6 +9,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MFAAvalonia.Extensions.MaaFW;
 using MFAAvalonia.Helper;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -344,6 +345,76 @@ public class OptionControlsTests(OptionControlsTestSession fixture) : IClassFixt
             AutomationProperties.GetAutomationId(button)?.StartsWith("RestoreResourceDefault", StringComparison.Ordinal) == true);
         Assert.Equal("F7", option.Data["activate"]);
         Assert.Equal(0, context.Saves);
+    });
+
+    [Theory]
+    [InlineData("text")]
+    [InlineData("file")]
+    [InlineData("directory")]
+    [InlineData("unknown")]
+    public Task EditorTypeKeepsEditableTextAndPipelineConversionSeparate(string editorType) => Run(() =>
+    {
+        using var context = new OptionControlsTestContext();
+        var definition = InputDefinition(new MaaInterface.MaaInterfaceOptionInput
+        {
+            Name = "value", InputType = editorType, PipelineType = "int", Default = "7"
+        });
+        var option = new MaaInterface.MaaInterfaceSelectOption { Name = "settings" };
+        var panel = CreateInputs(context, option, definition);
+        context.Show(panel);
+        Dispatcher.UIThread.RunJobs();
+        var textBox = panel.GetVisualDescendants().OfType<TextBox>().Single();
+        Assert.Equal('\0', textBox.PasswordChar);
+        Assert.Equal(editorType is "file" or "directory", textBox.InnerRightContent is Button);
+        textBox.Text = "23";
+        Assert.Equal("23", option.Data!["value"]);
+        Assert.Equal(JTokenType.Integer, JObject.Parse(option.PipelineOverride)["Test"]!["value"]!.Type);
+        textBox.Text = "C:\\not-yet-created\\配置.json";
+        Assert.Equal(textBox.Text, option.Data["value"]);
+    });
+
+    [Fact]
+    public Task ExplicitTextEditorOverridesLegacyBooleanSwitch() => Run(() =>
+    {
+        using var context = new OptionControlsTestContext();
+        var definition = InputDefinition(new MaaInterface.MaaInterfaceOptionInput
+        {
+            Name = "value", InputType = "text", PipelineType = "bool", Default = "true"
+        });
+        var option = new MaaInterface.MaaInterfaceSelectOption { Name = "settings" };
+        var panel = CreateInputs(context, option, definition);
+        context.Show(panel);
+        var textBox = panel.GetVisualDescendants().OfType<TextBox>().Single();
+        textBox.Text = "false";
+        Assert.False(JObject.Parse(option.PipelineOverride)["Test"]!["value"]!.Value<bool>());
+    });
+
+    [Theory]
+    [InlineData("string")]
+    [InlineData("int")]
+    [InlineData("bool")]
+    public Task PasswordEditorAlwaysMasksSavedValuesAndHasNoDefaultReset(string pipelineType) => Run(() =>
+    {
+        using var context = new OptionControlsTestContext();
+        var definition = InputDefinition(new MaaInterface.MaaInterfaceOptionInput
+        {
+            Name = "value", Password = true, PipelineType = pipelineType, Default = "must-not-be-used"
+        });
+        var option = new MaaInterface.MaaInterfaceSelectOption
+        {
+            Name = "settings", Data = new() { ["value"] = "saved-secret" }
+        };
+        var panel = CreateInputs(context, option, definition);
+        context.Show(panel);
+        var textBox = panel.GetVisualDescendants().OfType<TextBox>().Single();
+        Assert.NotEqual('\0', textBox.PasswordChar);
+        Assert.False(textBox.RevealPassword);
+        Assert.Equal("saved-secret", textBox.Text);
+        Assert.DoesNotContain(panel.GetVisualDescendants().OfType<Button>(), button =>
+            AutomationProperties.GetAutomationId(button)?.StartsWith("RestoreResourceDefault", StringComparison.Ordinal) == true);
+        textBox.Text = "new-secret";
+        Assert.Equal("new-secret", option.Data!["value"]);
+        Assert.DoesNotContain("new-secret", JsonConvert.SerializeObject(option));
     });
 
     [Fact]

@@ -12,7 +12,7 @@ namespace MFAAvalonia.Helper;
 public static class OptionDefaultReset
 {
     public static bool HasInputDefault(MaaInterface.MaaInterfaceOptionInput input)
-        => !string.IsNullOrEmpty(input.Name) && input.Default != null;
+        => !input.IsPassword && !string.IsNullOrEmpty(input.Name) && input.Default != null;
 
     public static int CountInputDefaults(MaaInterface.MaaInterfaceOption definition)
         => definition.IsInput ? definition.Inputs?.Count(HasInputDefault) ?? 0 : 0;

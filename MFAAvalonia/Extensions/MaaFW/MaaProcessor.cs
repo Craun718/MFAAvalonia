@@ -4040,7 +4040,9 @@ public class MaaProcessor
         //
         // var tasks = JsonConvert.DeserializeObject<Dictionary<string, MaaNode>>(json, settings);
         // tasks = tasks.MergeMaaNodes(taskModels);
-        LoggerHelper.Info($"[任务管线合并] 任务#{index} 名称=[{task.Name ?? task.InterfaceItem?.Name ?? "<未命名>"}] 入口=[{task.InterfaceItem?.Entry ?? "<空>"}] 参数={taskParams}");
+        var logParams = Interface?.Option?.Values.Any(option => option.Inputs?.Any(input => input.IsPassword) == true) == true
+            ? "[REDACTED]" : taskParams;
+        LoggerHelper.Info($"[任务管线合并] 任务#{index} 名称=[{task.Name ?? task.InterfaceItem?.Name ?? "<未命名>"}] 入口=[{task.InterfaceItem?.Entry ?? "<空>"}] 参数={logParams}");
         return new NodeAndParam
         {
             Index = index,
