@@ -5056,10 +5056,7 @@ public class MaaProcessor
 
         if (displayExpand is { Count: 2 } && displayExpand[0] > 0 && displayExpand[1] > 0)
         {
-            // MaaFramework 5.14 exposes this option in the native enum; the older
-            // managed binding used by this project has not named the enum member yet.
-            const ControllerOption screenshotTargetExpand = (ControllerOption)8;
-            if (!controller.SetOption(screenshotTargetExpand, displayExpand.ToArray()))
+            if (!controller.SetScreenshotTargetExpand(displayExpand[0], displayExpand[1]))
                 LoggerHelper.Warning("设置 display_expand 截图选项失败。");
             return;
         }
