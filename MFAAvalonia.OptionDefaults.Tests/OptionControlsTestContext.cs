@@ -4,6 +4,7 @@ using Avalonia.Headless;
 using Avalonia.Themes.Fluent;
 using MFAAvalonia.Helper;
 using MFAAvalonia.ViewModels.Pages;
+using MFAAvalonia.ViewModels.UsersControls.Settings;
 using MFAAvalonia.ViewModels.Windows;
 using SukiUI.Dialogs;
 using System;
@@ -32,6 +33,7 @@ internal sealed class OptionControlsTestContext : IDisposable
     private readonly ConcurrentDictionary<Type, Lazy<object>> _serviceCache;
     private readonly Lazy<object>? _previousRoot;
     private readonly Lazy<object>? _previousDialogs;
+    private readonly Lazy<object>? _previousVersionSettings;
     private bool _processorActive;
 
     public RootViewModel Root { get; }
@@ -51,8 +53,11 @@ internal sealed class OptionControlsTestContext : IDisposable
             .GetField("ServiceCache", BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
         _serviceCache.TryGetValue(typeof(RootViewModel), out _previousRoot);
         _serviceCache.TryGetValue(typeof(ISukiDialogManager), out _previousDialogs);
+        _serviceCache.TryGetValue(typeof(VersionUpdateSettingsUserControlModel), out _previousVersionSettings);
         _serviceCache[typeof(RootViewModel)] = new Lazy<object>(() => Root);
         _serviceCache[typeof(ISukiDialogManager)] = new Lazy<object>(() => DialogManager);
+        _serviceCache[typeof(VersionUpdateSettingsUserControlModel)] = new Lazy<object>(() =>
+            RuntimeHelpers.GetUninitializedObject(typeof(VersionUpdateSettingsUserControlModel)));
         DialogManager.OnDialogShown += (_, args) => Dialog = args.Dialog;
         DialogManager.OnDialogDismissed += (_, _) => Dialog = null;
         Generator = (TaskOptionGenerator)typeof(TaskOptionGenerator)
@@ -81,6 +86,7 @@ internal sealed class OptionControlsTestContext : IDisposable
         DialogManager.DismissDialog();
         RestoreService(typeof(RootViewModel), _previousRoot);
         RestoreService(typeof(ISukiDialogManager), _previousDialogs);
+        RestoreService(typeof(VersionUpdateSettingsUserControlModel), _previousVersionSettings);
     }
 
     private void RestoreService(Type type, Lazy<object>? previous)

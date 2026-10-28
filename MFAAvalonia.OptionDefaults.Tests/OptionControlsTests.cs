@@ -346,6 +346,29 @@ public class OptionControlsTests(OptionControlsTestSession fixture) : IClassFixt
         Assert.Equal(0, context.Saves);
     });
 
+    [Fact]
+    public Task NotificationFromWorkerThreadCreatesMarkdownOnUiThread()
+        => fixture.Session.Dispatch(async () =>
+        {
+            using var context = new OptionControlsTestContext();
+            var notifications = 0;
+            Action<object?, object?> showNotification = (title, content) =>
+            {
+                Assert.True(Dispatcher.UIThread.CheckAccess());
+                Assert.IsAssignableFrom<Control>(content);
+                notifications++;
+            };
+            var handler = (FocusHandler)typeof(FocusHandler)
+                .GetConstructor(BindingFlags.Instance | BindingFlags.NonPublic, null,
+                    [typeof(AutoInitDictionary), typeof(MFAAvalonia.ViewModels.Pages.TaskQueueViewModel), typeof(Action<object?, object?>)], null)!
+                .Invoke([new AutoInitDictionary(), context.TaskQueue, showNotification]);
+            await Task.Run(() => typeof(FocusHandler)
+                .GetMethod("DispatchToChannels", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .Invoke(handler, ["**content**", new List<string> { "notification" }]));
+            Assert.Equal(1, notifications);
+            return true;
+        }, CancellationToken.None);
+
     private Task Run(Action action) => fixture.Session.Dispatch(() =>
     {
         action();
