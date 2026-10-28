@@ -86,7 +86,7 @@
                 </DockPanel>
             </StackPanel>
         </suki:GlassCard>
-        <suki:GlassCard Padding="25">
+        <suki:GlassCard Classes="ScenicPanel" Padding="25">
             <StackPanel Spacing="15">
                 <DockPanel>
                     <ToggleSwitch
