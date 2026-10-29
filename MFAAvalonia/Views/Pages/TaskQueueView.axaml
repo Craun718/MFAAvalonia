@@ -1585,7 +1585,9 @@
                         </Button>
                     </StackPanel>
                 </dashboard:DashboardCard.HeaderActions>
-                <ScrollViewer BorderBrush="LightGray"
+                <!-- 日志重新获得焦点时保留当前位置，避免旧的焦点项触发回滚。 -->
+                <ScrollViewer BringIntoViewOnFocusChange="False"
+                              BorderBrush="LightGray"
                               BorderThickness="1"
                               ClipToBounds="False"
                               Margin="15,8,10,5"
