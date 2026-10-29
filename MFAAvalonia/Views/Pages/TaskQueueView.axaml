@@ -1633,6 +1633,8 @@
                                                         <mdxaml:MarkdownScrollViewer.Styles>
                                                             <StyleInclude
                                                                 Source="avares://MFAAvalonia.Core/Assets/Style/MdXamlDocStyle.axaml" />
+                                                            <StyleInclude
+                                                                Source="avares://MFAAvalonia.Core/Assets/Style/MdXamlLogStyle.axaml" />
                                                         </mdxaml:MarkdownScrollViewer.Styles>
                                                         <mdxaml:MarkdownScrollViewer.Plugins>
                                                             <StaticResource ResourceKey="MdXamlPlugin" />
