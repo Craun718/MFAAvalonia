@@ -1595,6 +1595,9 @@
                               VerticalContentAlignment="Top"
                               extensions:ScrollViewerExtensions.AutoScroll="True"
                               extensions:ScrollViewerExtensions.PanningMode="VerticalOnly">
+                    <ScrollViewer.Styles>
+                        <StyleInclude Source="avares://MFAAvalonia.Core/Assets/Style/LogScrollStyles.axaml" />
+                    </ScrollViewer.Styles>
                     <ItemsControl ItemsSource="{Binding Path=LogItemViewModels}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
