@@ -15,7 +15,10 @@
   <ItemGroup>
     <!-- Exercise the production control without initializing the automation host. -->
     <Compile Include="..\MFAAvalonia\Controls\ScenicBackground.cs" Link="ScenicBackground.cs" />
+    <Compile Include="..\MFAAvalonia\Extensions\ScrollViewerExtensions.cs" Link="ScrollViewerExtensions.cs" />
+    <AvaloniaResource Include="..\MFAAvalonia\Assets\Style\LogScrollStyles.axaml" Link="LogScrollStyles.axaml" />
     <AvaloniaResource Include="..\MFAAvalonia\Assets\Style\ScenicBackgroundStyles.axaml" Link="ScenicBackgroundStyles.axaml" />
     <ProjectReference Include="..\SukiUI\SukiUI.csproj" />
+    <ProjectReference Include="..\Markdown.Avalonia\Markdown.Avalonia.csproj" />
   </ItemGroup>
 </Project>
